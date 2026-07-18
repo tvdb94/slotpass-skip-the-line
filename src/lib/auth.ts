@@ -27,7 +27,6 @@ export async function signInDemo(kind: "customer" | "vendor") {
       });
     }
     // Give the demo vendor account admin rights so they can approve applications in the demo.
-    // @ts-expect-error – user_roles types are regenerated after migrations.
     await supabase.from("user_roles").insert({ user_id: uid, role: "admin" });
   }
   return second.data;
