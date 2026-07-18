@@ -57,7 +57,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     // 2. Slot capacity check
     const { data: slot, error: sErr } = await supabaseAdmin
       .from("slots")
-      .select("id, vendor_id, date, start_time, capacity, orders_count, discount_pct, is_open")
+      .select("id, vendor_id, date, start_time, capacity, orders_count, discount_pct, auto_discount_pct, is_open")
       .eq("id", data.slotId)
       .maybeSingle();
     if (sErr || !slot) throw new Error("Slot not found");
@@ -103,8 +103,10 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       if (d) {
         if (dPct > 0) lineDiscount = Math.round((lineTotal * dPct) / 100);
         else if (dCents > 0) lineDiscount = dCents * it.quantity;
-      } else if (slot.discount_pct > 0) {
-        lineDiscount = Math.round((lineTotal * slot.discount_pct) / 100);
+      } else {
+        // No manual item-slot discount → use the larger of manual slot discount and auto-priced discount.
+        const effectivePct = Math.max(slot.discount_pct ?? 0, Number(slot.auto_discount_pct ?? 0));
+        if (effectivePct > 0) lineDiscount = Math.round((lineTotal * effectivePct) / 100);
       }
       discount += lineDiscount;
       orderItems.push({
