@@ -1,10 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
 import { useI18n } from "@/lib/i18n";
 import { formatEUR, formatTime } from "@/lib/format";
+import { StarRating } from "@/components/StarRating";
 
 export const Route = createFileRoute("/order/$code")({
   component: OrderPage,
@@ -15,7 +17,7 @@ export const Route = createFileRoute("/order/$code")({
 });
 
 type Order = {
-  id: string; order_code: string; qr_token: string; status: string;
+  id: string; order_code: string; qr_token: string; status: string; collected_at: string | null;
   subtotal_cents: number; discount_cents: number; service_fee_cents: number; total_cents: number;
   customer_name: string; customer_email: string; slot_id: string; vendor_id: string;
 };
@@ -142,7 +144,99 @@ function OrderPage() {
         >
           {t("backToHome")}
         </Link>
+
+        {order.status === "collected" && (
+          <ReviewSection orderId={order.id} vendorId={order.vendor_id} primary={primary} />
+        )}
       </div>
+    </div>
+  );
+}
+
+function ReviewSection({ orderId, vendorId, primary }: { orderId: string; vendorId: string; primary: string }) {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
+  }, []);
+
+  const existing = useQuery({
+    queryKey: ["review", orderId],
+    queryFn: async () => {
+      const { data } = await supabase.from("reviews").select("*").eq("order_id", orderId).maybeSingle();
+      return data;
+    },
+  });
+
+  if (existing.data) {
+    return (
+      <div className="mt-6 rounded-2xl border border-border bg-card p-4">
+        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("yourRating")}</div>
+        <div className="mt-2"><StarRating value={existing.data.rating} readOnly /></div>
+        {existing.data.comment && (
+          <p className="mt-2 text-sm text-muted-foreground">{existing.data.comment}</p>
+        )}
+        <p className="mt-2 text-xs text-muted-foreground">{t("thanksReview")}</p>
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="mt-6 rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground">
+        <Link to="/login" className="font-semibold underline" style={{ color: primary }}>
+          {t("signInToReview")}
+        </Link>
+      </div>
+    );
+  }
+
+  const submit = async () => {
+    setSubmitting(true);
+    setError(null);
+    const { error } = await supabase.from("reviews").insert({
+      vendor_id: vendorId,
+      order_id: orderId,
+      customer_user_id: userId,
+      rating,
+      comment: comment.trim() || null,
+    });
+    setSubmitting(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    qc.invalidateQueries({ queryKey: ["review", orderId] });
+    qc.invalidateQueries({ queryKey: ["vendor-reviews", vendorId] });
+  };
+
+  return (
+    <div className="mt-6 rounded-2xl border border-border bg-card p-4">
+      <div className="text-sm font-black" style={{ color: primary }}>{t("rateYourVisit")}</div>
+      <p className="mt-1 text-xs text-muted-foreground">{t("rateHint")}</p>
+      <div className="mt-3"><StarRating value={rating} onChange={setRating} /></div>
+      <textarea
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder={t("commentOptional")}
+        rows={3}
+        className="mt-3 w-full rounded-xl border border-border bg-background p-2 text-sm"
+      />
+      {error && <div className="mt-2 text-xs text-red-600">{error}</div>}
+      <button
+        onClick={submit}
+        disabled={submitting}
+        className="mt-3 w-full rounded-full py-2 text-sm font-bold text-white disabled:opacity-60"
+        style={{ background: primary }}
+      >
+        {t("submitReview")}
+      </button>
     </div>
   );
 }
