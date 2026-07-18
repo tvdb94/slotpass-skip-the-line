@@ -649,6 +649,9 @@ function VendorDashboard() {
           )}
         </section>
 
+        {/* Dynamic Pricing Rules */}
+        {vendor && <PricingRulesCard vendorId={vendor.id} />}
+
         {/* Menu */}
         <section className="mt-6">
           <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("menuMgmt")}</h2>
