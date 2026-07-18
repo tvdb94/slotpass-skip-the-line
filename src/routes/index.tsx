@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
@@ -56,6 +56,31 @@ function Index() {
   const cuisines = useMemo(() => Array.from(new Set(vendors.map((v) => v.cuisine))), [vendors]);
   const filtered = cuisine === "all" ? vendors : vendors.filter((v) => v.cuisine === cuisine);
   const featured = vendors.filter((v) => v.is_featured);
+
+  // Promo carousel: auto-advance + dot indicators
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [activePromo, setActivePromo] = useState(0);
+  useEffect(() => {
+    if (featured.length <= 1) return;
+    const id = setInterval(() => {
+      setActivePromo((i) => {
+        const next = (i + 1) % featured.length;
+        const el = carouselRef.current;
+        if (el) {
+          const card = el.children[next] as HTMLElement | undefined;
+          card?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+        }
+        return next;
+      });
+    }, 5000);
+    return () => clearInterval(id);
+  }, [featured.length]);
+  function onCarouselScroll() {
+    const el = carouselRef.current;
+    if (!el) return;
+    const idx = Math.round(el.scrollLeft / (el.clientWidth * 0.85));
+    if (idx !== activePromo) setActivePromo(Math.min(idx, featured.length - 1));
+  }
 
   // per-vendor next available slot + max discount today
   const meta = useMemo(() => {
@@ -118,14 +143,18 @@ function Index() {
               <h2 className="mx-auto max-w-3xl px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 {t("featured")}
               </h2>
-              <div className="mt-2 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-2">
+              <div
+                ref={carouselRef}
+                onScroll={onCarouselScroll}
+                className="mt-2 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
                 {featured.map((v) => {
                   const headline = (lang === "nl" ? v.featured_headline_nl : v.featured_headline_en) ?? "";
                   return (
                     <a
                       key={v.id}
                       href={`/${v.slug}`}
-                      className="relative flex min-w-[85%] snap-start overflow-hidden rounded-2xl p-5 text-white shadow-lg"
+                      className="relative flex min-w-[85%] snap-start overflow-hidden rounded-2xl p-5 text-white shadow-lg transition hover:shadow-xl animate-fade-in"
                       style={{ background: `linear-gradient(135deg, ${v.brand_primary ?? "#111"} 0%, ${v.brand_primary ?? "#111"}dd 100%)` }}
                     >
                       <div className="flex-1">
@@ -143,6 +172,16 @@ function Index() {
                   );
                 })}
               </div>
+              {featured.length > 1 && (
+                <div className="mx-auto mt-2 flex max-w-3xl justify-center gap-1.5 px-4">
+                  {featured.map((_, i) => (
+                    <span
+                      key={i}
+                      className={`h-1.5 rounded-full transition-all ${i === activePromo ? "w-6 bg-foreground" : "w-1.5 bg-muted-foreground/30"}`}
+                    />
+                  ))}
+                </div>
+              )}
             </section>
           )}
 
@@ -160,20 +199,40 @@ function Index() {
           <section className="mx-auto mt-5 max-w-3xl px-4">
             <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("nearby")}</h2>
             {vendorsQ.isLoading ? (
-              <div className="mt-3 text-sm text-muted-foreground">{t("loading")}</div>
+              <ul className="mt-3 space-y-3">
+                {[0, 1, 2].map((i) => (
+                  <li key={i} className="flex gap-3 rounded-2xl border border-border bg-card p-3">
+                    <div className="h-24 w-24 shrink-0 animate-pulse rounded-xl bg-muted" />
+                    <div className="flex-1 space-y-2 py-1">
+                      <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+                      <div className="h-3 w-3/4 animate-pulse rounded bg-muted" />
+                      <div className="h-5 w-24 animate-pulse rounded-full bg-muted" />
+                    </div>
+                  </li>
+                ))}
+              </ul>
             ) : filtered.length === 0 ? (
               <div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-                {t("noVendors")}
+                <div className="text-3xl">🍽️</div>
+                <div className="mt-2 font-semibold text-foreground">{t("noVendors")}</div>
+                {cuisine !== "all" && (
+                  <button
+                    onClick={() => setCuisine("all")}
+                    className="mt-3 rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold"
+                  >
+                    {t("all")}
+                  </button>
+                )}
               </div>
             ) : (
               <ul className="mt-3 space-y-3">
                 {filtered.map((v) => {
                   const m = meta.get(v.id);
                   return (
-                    <li key={v.id}>
+                    <li key={v.id} className="animate-fade-in">
                       <a
                         href={`/${v.slug}`}
-                        className="flex gap-3 rounded-2xl border border-border bg-card p-3 transition active:scale-[.99]"
+                        className="flex gap-3 rounded-2xl border border-border bg-card p-3 transition hover:border-foreground/40 hover:shadow-md active:scale-[.99]"
                       >
                         <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-muted">
                           {v.hero_url && <img src={v.hero_url} alt={v.name} className="h-full w-full object-cover" />}
