@@ -22,6 +22,7 @@ import { Route as ApiPublicWebhooksStripeConnectRouteImport } from './routes/api
 import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public/webhooks/stripe'
 import { Route as ApiPublicHooksSendRemindersRouteImport } from './routes/api/public/hooks/send-reminders'
 import { Route as ApiPublicHooksMarkNoShowsRouteImport } from './routes/api/public/hooks/mark-no-shows'
+import { Route as ApiPublicHooksApplyDynamicPricingRouteImport } from './routes/api/public/hooks/apply-dynamic-pricing'
 
 const VendorRoute = VendorRouteImport.update({
   id: '/vendor',
@@ -91,6 +92,12 @@ const ApiPublicHooksMarkNoShowsRoute =
     path: '/api/public/hooks/mark-no-shows',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksApplyDynamicPricingRoute =
+  ApiPublicHooksApplyDynamicPricingRouteImport.update({
+    id: '/api/public/hooks/apply-dynamic-pricing',
+    path: '/api/public/hooks/apply-dynamic-pricing',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/orders': typeof OrdersRoute
   '/vendor': typeof VendorRoute
   '/order/$code': typeof OrderCodeRoute
+  '/api/public/hooks/apply-dynamic-pricing': typeof ApiPublicHooksApplyDynamicPricingRoute
   '/api/public/hooks/mark-no-shows': typeof ApiPublicHooksMarkNoShowsRoute
   '/api/public/hooks/send-reminders': typeof ApiPublicHooksSendRemindersRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
@@ -117,6 +125,7 @@ export interface FileRoutesByTo {
   '/orders': typeof OrdersRoute
   '/vendor': typeof VendorRoute
   '/order/$code': typeof OrderCodeRoute
+  '/api/public/hooks/apply-dynamic-pricing': typeof ApiPublicHooksApplyDynamicPricingRoute
   '/api/public/hooks/mark-no-shows': typeof ApiPublicHooksMarkNoShowsRoute
   '/api/public/hooks/send-reminders': typeof ApiPublicHooksSendRemindersRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
@@ -133,6 +142,7 @@ export interface FileRoutesById {
   '/orders': typeof OrdersRoute
   '/vendor': typeof VendorRoute
   '/order/$code': typeof OrderCodeRoute
+  '/api/public/hooks/apply-dynamic-pricing': typeof ApiPublicHooksApplyDynamicPricingRoute
   '/api/public/hooks/mark-no-shows': typeof ApiPublicHooksMarkNoShowsRoute
   '/api/public/hooks/send-reminders': typeof ApiPublicHooksSendRemindersRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/orders'
     | '/vendor'
     | '/order/$code'
+    | '/api/public/hooks/apply-dynamic-pricing'
     | '/api/public/hooks/mark-no-shows'
     | '/api/public/hooks/send-reminders'
     | '/api/public/webhooks/stripe'
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/orders'
     | '/vendor'
     | '/order/$code'
+    | '/api/public/hooks/apply-dynamic-pricing'
     | '/api/public/hooks/mark-no-shows'
     | '/api/public/hooks/send-reminders'
     | '/api/public/webhooks/stripe'
@@ -180,6 +192,7 @@ export interface FileRouteTypes {
     | '/orders'
     | '/vendor'
     | '/order/$code'
+    | '/api/public/hooks/apply-dynamic-pricing'
     | '/api/public/hooks/mark-no-shows'
     | '/api/public/hooks/send-reminders'
     | '/api/public/webhooks/stripe'
@@ -196,6 +209,7 @@ export interface RootRouteChildren {
   OrdersRoute: typeof OrdersRoute
   VendorRoute: typeof VendorRoute
   OrderCodeRoute: typeof OrderCodeRoute
+  ApiPublicHooksApplyDynamicPricingRoute: typeof ApiPublicHooksApplyDynamicPricingRoute
   ApiPublicHooksMarkNoShowsRoute: typeof ApiPublicHooksMarkNoShowsRoute
   ApiPublicHooksSendRemindersRoute: typeof ApiPublicHooksSendRemindersRoute
   ApiPublicWebhooksStripeRoute: typeof ApiPublicWebhooksStripeRoute
@@ -295,6 +309,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksMarkNoShowsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/apply-dynamic-pricing': {
+      id: '/api/public/hooks/apply-dynamic-pricing'
+      path: '/api/public/hooks/apply-dynamic-pricing'
+      fullPath: '/api/public/hooks/apply-dynamic-pricing'
+      preLoaderRoute: typeof ApiPublicHooksApplyDynamicPricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -308,6 +329,8 @@ const rootRouteChildren: RootRouteChildren = {
   OrdersRoute: OrdersRoute,
   VendorRoute: VendorRoute,
   OrderCodeRoute: OrderCodeRoute,
+  ApiPublicHooksApplyDynamicPricingRoute:
+    ApiPublicHooksApplyDynamicPricingRoute,
   ApiPublicHooksMarkNoShowsRoute: ApiPublicHooksMarkNoShowsRoute,
   ApiPublicHooksSendRemindersRoute: ApiPublicHooksSendRemindersRoute,
   ApiPublicWebhooksStripeRoute: ApiPublicWebhooksStripeRoute,
