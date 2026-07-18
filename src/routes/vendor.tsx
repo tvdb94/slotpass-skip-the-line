@@ -818,7 +818,7 @@ function PricingRulesCard({ vendorId }: { vendorId: string }) {
             enabled ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"
           }`}
         >
-          {enabled ? tt("on") : tt("off")}
+          {enabled ? tt("pricingOn") : tt("pricingOff")}
         </button>
       </div>
 
@@ -884,7 +884,7 @@ function PricingRulesCard({ vendorId }: { vendorId: string }) {
                   r.active ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"
                 }`}
               >
-                {r.active ? tt("on") : tt("off")}
+                {r.active ? tt("pricingOn") : tt("pricingOff")}
               </button>
               <button onClick={() => removeRule(r)} className="text-muted-foreground hover:text-red-600" aria-label="delete">
                 ×
