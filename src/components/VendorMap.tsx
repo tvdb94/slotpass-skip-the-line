@@ -14,15 +14,7 @@ const defaultIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-export type MapVendor = {
-  id: string;
-  slug: string;
-  name: string;
-  cuisine: string;
-  lat: number | null;
-  lng: number | null;
-  brand_primary: string | null;
-};
+import type { MapVendor } from "./map-types";
 
 export default function VendorMap({ vendors }: { vendors: MapVendor[] }) {
   useEffect(() => {
