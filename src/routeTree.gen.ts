@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VendorRouteImport } from './routes/vendor'
+import { Route as OrdersRouteImport } from './routes/orders'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as SlugRouteImport } from './routes/$slug'
@@ -21,6 +22,11 @@ import { Route as ApiPublicHooksMarkNoShowsRouteImport } from './routes/api/publ
 const VendorRoute = VendorRouteImport.update({
   id: '/vendor',
   path: '/vendor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrdersRoute = OrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/$slug': typeof SlugRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
+  '/orders': typeof OrdersRoute
   '/vendor': typeof VendorRoute
   '/order/$code': typeof OrderCodeRoute
   '/api/public/hooks/mark-no-shows': typeof ApiPublicHooksMarkNoShowsRoute
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/$slug': typeof SlugRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
+  '/orders': typeof OrdersRoute
   '/vendor': typeof VendorRoute
   '/order/$code': typeof OrderCodeRoute
   '/api/public/hooks/mark-no-shows': typeof ApiPublicHooksMarkNoShowsRoute
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/$slug': typeof SlugRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
+  '/orders': typeof OrdersRoute
   '/vendor': typeof VendorRoute
   '/order/$code': typeof OrderCodeRoute
   '/api/public/hooks/mark-no-shows': typeof ApiPublicHooksMarkNoShowsRoute
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/$slug'
     | '/checkout'
     | '/login'
+    | '/orders'
     | '/vendor'
     | '/order/$code'
     | '/api/public/hooks/mark-no-shows'
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/$slug'
     | '/checkout'
     | '/login'
+    | '/orders'
     | '/vendor'
     | '/order/$code'
     | '/api/public/hooks/mark-no-shows'
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/$slug'
     | '/checkout'
     | '/login'
+    | '/orders'
     | '/vendor'
     | '/order/$code'
     | '/api/public/hooks/mark-no-shows'
@@ -130,6 +142,7 @@ export interface RootRouteChildren {
   SlugRoute: typeof SlugRoute
   CheckoutRoute: typeof CheckoutRoute
   LoginRoute: typeof LoginRoute
+  OrdersRoute: typeof OrdersRoute
   VendorRoute: typeof VendorRoute
   OrderCodeRoute: typeof OrderCodeRoute
   ApiPublicHooksMarkNoShowsRoute: typeof ApiPublicHooksMarkNoShowsRoute
@@ -143,6 +156,13 @@ declare module '@tanstack/react-router' {
       path: '/vendor'
       fullPath: '/vendor'
       preLoaderRoute: typeof VendorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/orders': {
+      id: '/orders'
+      path: '/orders'
+      fullPath: '/orders'
+      preLoaderRoute: typeof OrdersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -202,6 +222,7 @@ const rootRouteChildren: RootRouteChildren = {
   SlugRoute: SlugRoute,
   CheckoutRoute: CheckoutRoute,
   LoginRoute: LoginRoute,
+  OrdersRoute: OrdersRoute,
   VendorRoute: VendorRoute,
   OrderCodeRoute: OrderCodeRoute,
   ApiPublicHooksMarkNoShowsRoute: ApiPublicHooksMarkNoShowsRoute,

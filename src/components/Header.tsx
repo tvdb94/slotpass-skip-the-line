@@ -45,6 +45,14 @@ export function Header() {
               {t("dashboard")}
             </Link>
           )}
+          {signedIn && !isStaff && (
+            <Link
+              to="/orders"
+              className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold"
+            >
+              {t("myOrders")}
+            </Link>
+          )}
           {signedIn ? (
             <button
               onClick={signOut}
