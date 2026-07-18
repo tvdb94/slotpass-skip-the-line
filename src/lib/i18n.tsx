@@ -352,6 +352,16 @@ const dict = {
     canceledPayout: "Cancelled",
     orderPending: "Payment being processed…",
     orderPendingHint: "This page will refresh automatically once Stripe confirms your payment.",
+    dynamicPricing: "Dynamic pricing",
+    dynamicPricingHint: "Empty slots get automatic discounts shortly before pickup to boost demand.",
+    pricingOn: "On",
+    pricingOff: "Off",
+    ifWithin: "If within",
+    fillBelow: "Fill below",
+    discountPct: "Discount %",
+    addRule: "+ Rule",
+    noRules: "No rules yet.",
+    minutesShort: "min",
   },
 } as const;
 
