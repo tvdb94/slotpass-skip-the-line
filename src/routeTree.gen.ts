@@ -13,6 +13,7 @@ import { Route as VendorRouteImport } from './routes/vendor'
 import { Route as OrdersRouteImport } from './routes/orders'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as BecomeVendorRouteImport } from './routes/become-vendor'
 import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OrderCodeRouteImport } from './routes/order.$code'
@@ -37,6 +38,11 @@ const LoginRoute = LoginRouteImport.update({
 const CheckoutRoute = CheckoutRouteImport.update({
   id: '/checkout',
   path: '/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BecomeVendorRoute = BecomeVendorRouteImport.update({
+  id: '/become-vendor',
+  path: '/become-vendor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SlugRoute = SlugRouteImport.update({
@@ -70,6 +76,7 @@ const ApiPublicHooksMarkNoShowsRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$slug': typeof SlugRoute
+  '/become-vendor': typeof BecomeVendorRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
   '/orders': typeof OrdersRoute
@@ -81,6 +88,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$slug': typeof SlugRoute
+  '/become-vendor': typeof BecomeVendorRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
   '/orders': typeof OrdersRoute
@@ -93,6 +101,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$slug': typeof SlugRoute
+  '/become-vendor': typeof BecomeVendorRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
   '/orders': typeof OrdersRoute
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$slug'
+    | '/become-vendor'
     | '/checkout'
     | '/login'
     | '/orders'
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/$slug'
+    | '/become-vendor'
     | '/checkout'
     | '/login'
     | '/orders'
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/$slug'
+    | '/become-vendor'
     | '/checkout'
     | '/login'
     | '/orders'
@@ -140,6 +152,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SlugRoute: typeof SlugRoute
+  BecomeVendorRoute: typeof BecomeVendorRoute
   CheckoutRoute: typeof CheckoutRoute
   LoginRoute: typeof LoginRoute
   OrdersRoute: typeof OrdersRoute
@@ -177,6 +190,13 @@ declare module '@tanstack/react-router' {
       path: '/checkout'
       fullPath: '/checkout'
       preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/become-vendor': {
+      id: '/become-vendor'
+      path: '/become-vendor'
+      fullPath: '/become-vendor'
+      preLoaderRoute: typeof BecomeVendorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/$slug': {
@@ -220,6 +240,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SlugRoute: SlugRoute,
+  BecomeVendorRoute: BecomeVendorRoute,
   CheckoutRoute: CheckoutRoute,
   LoginRoute: LoginRoute,
   OrdersRoute: OrdersRoute,
