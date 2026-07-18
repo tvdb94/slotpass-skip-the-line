@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Link } from "@tanstack/react-router";
 
 // Fix default marker icons (bundlers strip the relative paths Leaflet expects)
 const defaultIcon = L.icon({
@@ -46,9 +45,9 @@ export default function VendorMap({ vendors }: { vendors: MapVendor[] }) {
             <div className="min-w-[140px]">
               <div className="font-bold" style={{ color: v.brand_primary ?? undefined }}>{v.name}</div>
               <div className="text-xs text-neutral-500">{v.cuisine}</div>
-              <Link to="/$vendorSlug" params={{ vendorSlug: v.slug }} className="mt-1 inline-block text-xs font-semibold underline">
+              <a href={`/${v.slug}`} className="mt-1 inline-block text-xs font-semibold underline">
                 Open →
-              </Link>
+              </a>
             </div>
           </Popup>
         </Marker>
