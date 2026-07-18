@@ -689,3 +689,40 @@ function StatCard({ label, value, accent }: { label: string; value: string; acce
     </div>
   );
 }
+
+function resolveRange(preset: RangePreset, customFrom: string, customTo: string): [string, string] {
+  if (preset === "custom") {
+    return [customFrom, customTo];
+  }
+  const today = new Date();
+  const to = today.toISOString().slice(0, 10);
+  const from = new Date(today);
+  if (preset === "7d") from.setDate(today.getDate() - 6);
+  else if (preset === "30d") from.setDate(today.getDate() - 29);
+  else if (preset === "month") from.setDate(1);
+  return [from.toISOString().slice(0, 10), to];
+}
+
+function payoutBadge(status: string): string {
+  switch (status) {
+    case "paid": return "bg-emerald-100 text-emerald-700";
+    case "in_transit": return "bg-sky-100 text-sky-700";
+    case "pending": return "bg-amber-100 text-amber-700";
+    case "failed": return "bg-red-100 text-red-700";
+    case "canceled": return "bg-muted text-muted-foreground";
+    default: return "bg-muted text-muted-foreground";
+  }
+}
+
+function payoutLabel(status: string, t: (k: never) => string): string {
+  // `t` is the tagged translator; cast keys because Key is a strict union.
+  const tt = t as unknown as (k: string) => string;
+  switch (status) {
+    case "paid": return tt("paidOut");
+    case "in_transit": return tt("inTransitPayout");
+    case "pending": return tt("pendingPayout");
+    case "failed": return tt("failedPayout");
+    case "canceled": return tt("canceledPayout");
+    default: return status;
+  }
+}
