@@ -283,6 +283,50 @@ export type Database = {
           },
         ]
       }
+      pricing_rules: {
+        Row: {
+          active: boolean
+          created_at: string
+          discount_pct: number
+          id: string
+          max_fill_pct: number
+          priority: number
+          trigger_minutes: number
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          discount_pct: number
+          id?: string
+          max_fill_pct: number
+          priority?: number
+          trigger_minutes: number
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          discount_pct?: number
+          id?: string
+          max_fill_pct?: number
+          priority?: number
+          trigger_minutes?: number
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_rules_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reviews: {
         Row: {
           comment: string | null
@@ -330,6 +374,7 @@ export type Database = {
       }
       slots: {
         Row: {
+          auto_discount_pct: number
           capacity: number
           date: string
           discount_pct: number
@@ -341,6 +386,7 @@ export type Database = {
           vendor_id: string
         }
         Insert: {
+          auto_discount_pct?: number
           capacity?: number
           date: string
           discount_pct?: number
@@ -352,6 +398,7 @@ export type Database = {
           vendor_id: string
         }
         Update: {
+          auto_discount_pct?: number
           capacity?: number
           date?: string
           discount_pct?: number
@@ -500,6 +547,7 @@ export type Database = {
           cuisine: string
           currency: string | null
           description: string | null
+          dynamic_pricing_enabled: boolean
           featured_headline_en: string | null
           featured_headline_nl: string | null
           grace_minutes: number
@@ -531,6 +579,7 @@ export type Database = {
           cuisine: string
           currency?: string | null
           description?: string | null
+          dynamic_pricing_enabled?: boolean
           featured_headline_en?: string | null
           featured_headline_nl?: string | null
           grace_minutes?: number
@@ -562,6 +611,7 @@ export type Database = {
           cuisine?: string
           currency?: string | null
           description?: string | null
+          dynamic_pricing_enabled?: boolean
           featured_headline_en?: string | null
           featured_headline_nl?: string | null
           grace_minutes?: number
