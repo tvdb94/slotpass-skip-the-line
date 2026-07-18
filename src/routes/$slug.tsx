@@ -44,6 +44,7 @@ type MenuItem = {
   id: string; category_id: string | null; name_nl: string; name_en: string;
   description_nl: string | null; description_en: string | null;
   price_cents: number; image_url: string | null; is_available: boolean; sort_order: number;
+  daily_stock: number | null; stock_remaining: number | null;
 };
 
 function VendorPage() {
