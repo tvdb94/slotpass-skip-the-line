@@ -630,6 +630,11 @@ function VendorDashboard() {
                       −{s.discount_pct}%
                     </span>
                   )}
+                  {Number(s.auto_discount_pct ?? 0) > 0 && (
+                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700">
+                      auto −{Math.round(Number(s.auto_discount_pct))}%
+                    </span>
+                  )}
                   <button
                     onClick={() => toggleSlotOpen(s)}
                     className={`ml-auto rounded-full px-3 py-1 text-[11px] font-bold ${
