@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
 import { useI18n } from "@/lib/i18n";
@@ -52,6 +52,7 @@ function VendorPage() {
   const { t, lang } = useI18n();
   const { cart, addItem, totalCents, totalItems } = useCart();
   const navigate = useNavigate();
+  const qc = useQueryClient();
 
   const vendorQ = useQuery({
     queryKey: ["vendor", slug],
@@ -78,6 +79,24 @@ function VendorPage() {
       return { categories: cats.data as Category[], items: items.data as MenuItem[] };
     },
   });
+
+  // Realtime stock updates
+  useEffect(() => {
+    if (!vendor) return;
+    const channel = supabase
+      .channel(`menu-stock-${vendor.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "menu_items", filter: `vendor_id=eq.${vendor.id}` },
+        () => {
+          qc.invalidateQueries({ queryKey: ["menu", vendor.id] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [vendor, qc]);
 
   const reviewsQ = useQuery({
     enabled: !!vendor,
