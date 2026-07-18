@@ -25,7 +25,7 @@ type Vendor = {
 };
 type Slot = {
   id: string; date: string; start_time: string; end_time: string;
-  capacity: number; orders_count: number; discount_pct: number; is_open: boolean;
+  capacity: number; orders_count: number; discount_pct: number; auto_discount_pct: number; is_open: boolean;
 };
 type OrderRow = {
   id: string; order_code: string; status: string; total_cents: number;
