@@ -16,6 +16,7 @@ import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OrderCodeRouteImport } from './routes/order.$code'
 import { Route as ApiPublicHooksSendRemindersRouteImport } from './routes/api/public/hooks/send-reminders'
+import { Route as ApiPublicHooksMarkNoShowsRouteImport } from './routes/api/public/hooks/mark-no-shows'
 
 const VendorRoute = VendorRouteImport.update({
   id: '/vendor',
@@ -53,6 +54,12 @@ const ApiPublicHooksSendRemindersRoute =
     path: '/api/public/hooks/send-reminders',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksMarkNoShowsRoute =
+  ApiPublicHooksMarkNoShowsRouteImport.update({
+    id: '/api/public/hooks/mark-no-shows',
+    path: '/api/public/hooks/mark-no-shows',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -61,6 +68,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/vendor': typeof VendorRoute
   '/order/$code': typeof OrderCodeRoute
+  '/api/public/hooks/mark-no-shows': typeof ApiPublicHooksMarkNoShowsRoute
   '/api/public/hooks/send-reminders': typeof ApiPublicHooksSendRemindersRoute
 }
 export interface FileRoutesByTo {
@@ -70,6 +78,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/vendor': typeof VendorRoute
   '/order/$code': typeof OrderCodeRoute
+  '/api/public/hooks/mark-no-shows': typeof ApiPublicHooksMarkNoShowsRoute
   '/api/public/hooks/send-reminders': typeof ApiPublicHooksSendRemindersRoute
 }
 export interface FileRoutesById {
@@ -80,6 +89,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/vendor': typeof VendorRoute
   '/order/$code': typeof OrderCodeRoute
+  '/api/public/hooks/mark-no-shows': typeof ApiPublicHooksMarkNoShowsRoute
   '/api/public/hooks/send-reminders': typeof ApiPublicHooksSendRemindersRoute
 }
 export interface FileRouteTypes {
@@ -91,6 +101,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/vendor'
     | '/order/$code'
+    | '/api/public/hooks/mark-no-shows'
     | '/api/public/hooks/send-reminders'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -100,6 +111,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/vendor'
     | '/order/$code'
+    | '/api/public/hooks/mark-no-shows'
     | '/api/public/hooks/send-reminders'
   id:
     | '__root__'
@@ -109,6 +121,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/vendor'
     | '/order/$code'
+    | '/api/public/hooks/mark-no-shows'
     | '/api/public/hooks/send-reminders'
   fileRoutesById: FileRoutesById
 }
@@ -119,6 +132,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   VendorRoute: typeof VendorRoute
   OrderCodeRoute: typeof OrderCodeRoute
+  ApiPublicHooksMarkNoShowsRoute: typeof ApiPublicHooksMarkNoShowsRoute
   ApiPublicHooksSendRemindersRoute: typeof ApiPublicHooksSendRemindersRoute
 }
 
@@ -173,6 +187,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksSendRemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/mark-no-shows': {
+      id: '/api/public/hooks/mark-no-shows'
+      path: '/api/public/hooks/mark-no-shows'
+      fullPath: '/api/public/hooks/mark-no-shows'
+      preLoaderRoute: typeof ApiPublicHooksMarkNoShowsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -183,6 +204,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   VendorRoute: VendorRoute,
   OrderCodeRoute: OrderCodeRoute,
+  ApiPublicHooksMarkNoShowsRoute: ApiPublicHooksMarkNoShowsRoute,
   ApiPublicHooksSendRemindersRoute: ApiPublicHooksSendRemindersRoute,
 }
 export const routeTree = rootRouteImport

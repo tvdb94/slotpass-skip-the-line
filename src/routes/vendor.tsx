@@ -17,7 +17,7 @@ type Slot = {
 type OrderRow = {
   id: string; order_code: string; status: string; total_cents: number;
   customer_name: string | null; qr_token: string | null; slot_id: string;
-  paid_at: string | null; collected_at: string | null;
+  paid_at: string | null; collected_at: string | null; no_show_at: string | null;
 };
 type MenuItem = {
   id: string; name_nl: string; name_en: string; price_cents: number; is_available: boolean | null;
@@ -87,7 +87,7 @@ function VendorDashboard() {
     if (ids.length === 0) { setOrders([]); return; }
     const { data } = await supabase
       .from("orders")
-      .select("id,order_code,status,total_cents,customer_name,qr_token,slot_id,paid_at,collected_at")
+      .select("id,order_code,status,total_cents,customer_name,qr_token,slot_id,paid_at,collected_at,no_show_at")
       .eq("vendor_id", vendorId)
       .in("slot_id", ids)
       .order("paid_at", { ascending: false });
@@ -104,17 +104,31 @@ function VendorDashboard() {
 
   async function markCollected(order: OrderRow) {
     await supabase.from("orders").update({
-      status: "collected", collected_at: new Date().toISOString(),
+      status: "collected", collected_at: new Date().toISOString(), no_show_at: null,
     }).eq("id", order.id);
     if (vendor) reloadOrders(vendor.id);
     setFlash(`✓ ${order.order_code}`);
     setTimeout(() => setFlash(null), 1500);
   }
 
+  async function markNoShow(order: OrderRow) {
+    await supabase.from("orders").update({
+      status: "no_show", no_show_at: new Date().toISOString(),
+    }).eq("id", order.id);
+    if (vendor) reloadOrders(vendor.id);
+  }
+
+  async function undoNoShow(order: OrderRow) {
+    await supabase.from("orders").update({
+      status: "paid", no_show_at: null,
+    }).eq("id", order.id);
+    if (vendor) reloadOrders(vendor.id);
+  }
+
   async function lookupAndCollect() {
     const q = scan.trim();
     if (!q || !vendor) return;
-    const cols = "id,order_code,status,total_cents,customer_name,qr_token,slot_id,paid_at,collected_at,vendor_id";
+    const cols = "id,order_code,status,total_cents,customer_name,qr_token,slot_id,paid_at,collected_at,no_show_at,vendor_id";
     const { data: byToken } = await supabase.from("orders").select(cols).eq("qr_token", q).maybeSingle();
     const { data: byCode } = byToken
       ? { data: byToken }
@@ -174,8 +188,9 @@ function VendorDashboard() {
     );
   }
 
-  const active = orders.filter((o) => o.status !== "collected");
+  const active = orders.filter((o) => o.status !== "collected" && o.status !== "no_show");
   const done = orders.filter((o) => o.status === "collected");
+  const noShows = orders.filter((o) => o.status === "no_show");
 
   return (
     <div className="min-h-screen bg-background pb-10">
@@ -237,17 +252,44 @@ function VendorDashboard() {
                       <div className="mt-0.5 truncate text-sm font-semibold">{o.customer_name}</div>
                       <div className="text-xs text-muted-foreground">{formatEUR(o.total_cents)}</div>
                     </div>
-                    <button
-                      onClick={() => markCollected(o)}
-                      className="rounded-full px-3 py-1.5 text-xs font-bold text-white"
-                      style={{ background: primary }}
-                    >
-                      {t("markCollected")}
-                    </button>
+                    <div className="flex flex-col items-end gap-1">
+                      <button
+                        onClick={() => markCollected(o)}
+                        className="rounded-full px-3 py-1.5 text-xs font-bold text-white"
+                        style={{ background: primary }}
+                      >
+                        {t("markCollected")}
+                      </button>
+                      <button
+                        onClick={() => markNoShow(o)}
+                        className="rounded-full px-2 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
+                      >
+                        {t("markNoShow")}
+                      </button>
+                    </div>
                   </li>
                 );
               })}
             </ul>
+          )}
+          {noShows.length > 0 && (
+            <>
+              <div className="mt-4 text-[11px] font-bold uppercase tracking-wider text-amber-700">{t("noShow")}</div>
+              <ul className="mt-1 space-y-1">
+                {noShows.map((o) => (
+                  <li key={o.id} className="flex items-center justify-between rounded-xl border border-amber-300/60 bg-amber-50 px-3 py-1.5 text-xs">
+                    <span className="font-mono font-bold">{o.order_code}</span>
+                    <span className="text-muted-foreground">{o.customer_name}</span>
+                    <div className="flex items-center gap-2">
+                      <span>{formatEUR(o.total_cents)}</span>
+                      <button onClick={() => undoNoShow(o)} className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-300">
+                        {t("undo")}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
           {done.length > 0 && (
             <>

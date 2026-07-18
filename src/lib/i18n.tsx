@@ -78,6 +78,10 @@ const dict = {
     notStaff: "Dit account is niet gekoppeld aan een verkoper.",
     signInAsVendor: "Log in als demo verkoper",
     live: "Live",
+    noShow: "Niet opgehaald",
+    markNoShow: "Markeer niet-opgehaald",
+    undo: "Ongedaan maken",
+    graceMinutes: "coulance",
   },
   en: {
     appName: "SlotPass",
@@ -154,6 +158,10 @@ const dict = {
     notStaff: "This account is not linked to any vendor.",
     signInAsVendor: "Sign in as demo vendor",
     live: "Live",
+    noShow: "No-show",
+    markNoShow: "Mark no-show",
+    undo: "Undo",
+    graceMinutes: "grace",
   },
 } as const;
 
