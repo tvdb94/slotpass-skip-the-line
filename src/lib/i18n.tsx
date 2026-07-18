@@ -158,6 +158,10 @@ const dict = {
     notStaff: "This account is not linked to any vendor.",
     signInAsVendor: "Sign in as demo vendor",
     live: "Live",
+    noShow: "No-show",
+    markNoShow: "Mark no-show",
+    undo: "Undo",
+    graceMinutes: "grace",
   },
 } as const;
 
