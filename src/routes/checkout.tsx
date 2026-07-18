@@ -98,7 +98,7 @@ function Checkout() {
   const selectedSlot = availableSlots.find((s) => s.id === cart.slot_id) ?? null;
 
   // Compute per-item discount for the selected slot
-  const { subtotalCents, discountCents, serviceFeeCents, totalWithFeeCents } = useMemo(() => {
+  const { subtotalCents, discountCents, serviceFeeCents, totalWithFeeCents, commissionCents } = useMemo(() => {
     let subtotal = 0;
     let discount = 0;
     for (const item of cart.items) {
