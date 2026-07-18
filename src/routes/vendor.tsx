@@ -666,6 +666,26 @@ function VendorDashboard() {
                       auto −{Math.round(Number(s.auto_discount_pct))}%
                     </span>
                   )}
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground" title="Priority tier (capacity · upcharge €)">
+                    <span>⚡</span>
+                    <span>{s.priority_taken}/</span>
+                    <input
+                      type="number"
+                      defaultValue={s.priority_capacity}
+                      onBlur={(e) => updatePriorityCap(s, Number(e.target.value))}
+                      className="w-10 rounded border border-border bg-background px-1 py-0.5 text-[10px]"
+                      min={0}
+                    />
+                    <span>€</span>
+                    <input
+                      type="number"
+                      step="0.10"
+                      defaultValue={(s.priority_upcharge_cents / 100).toFixed(2)}
+                      onBlur={(e) => updatePriorityUpcharge(s, Number(e.target.value))}
+                      className="w-12 rounded border border-border bg-background px-1 py-0.5 text-[10px]"
+                      min={0}
+                    />
+                  </div>
                   <button
                     onClick={() => toggleSlotOpen(s)}
                     className={`ml-auto rounded-full px-3 py-1 text-[11px] font-bold ${
