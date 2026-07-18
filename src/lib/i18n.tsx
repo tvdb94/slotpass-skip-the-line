@@ -107,6 +107,11 @@ const dict = {
     statusCancelled: "Geannuleerd",
     orderAt: "Besteld op",
     itemsUnavailableForReorder: "Sommige items zijn niet meer beschikbaar",
+    searchPlaceholder: "Zoek zaken, keukens of gerechten…",
+    searchResults: "Zoekresultaten",
+    matchedDish: "Gerecht",
+    clear: "Wissen",
+    noSearchResults: "Geen resultaten voor",
   },
   en: {
     appName: "SlotPass",
@@ -212,6 +217,11 @@ const dict = {
     statusCancelled: "Cancelled",
     orderAt: "Ordered on",
     itemsUnavailableForReorder: "Some items are no longer available",
+    searchPlaceholder: "Search vendors, cuisines or dishes…",
+    searchResults: "Search results",
+    matchedDish: "Dish",
+    clear: "Clear",
+    noSearchResults: "No results for",
   },
 } as const;
 
