@@ -294,6 +294,15 @@ function Checkout() {
           waitlistEntryId: waitlistOffer ? waitlistOffer.id : null,
         },
       });
+      if (!res.url) throw new Error("Stripe returned no checkout URL");
+      clear();
+      window.location.href = res.url;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setSubmitting(false);
+    }
+  }
+
   async function joinWaitlist() {
     if (!vendor || !selectedSlot || !email.includes("@") || name.trim().length < 2) return;
     setWaitlistBusy(true);
@@ -314,15 +323,6 @@ function Checkout() {
       setWaitlistMsg(e instanceof Error ? e.message : String(e));
     } finally {
       setWaitlistBusy(false);
-    }
-  }
-
-      if (!res.url) throw new Error("Stripe returned no checkout URL");
-      clear();
-      window.location.href = res.url;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-      setSubmitting(false);
     }
   }
 
