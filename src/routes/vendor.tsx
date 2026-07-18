@@ -26,6 +26,7 @@ type Vendor = {
 type Slot = {
   id: string; date: string; start_time: string; end_time: string;
   capacity: number; orders_count: number; discount_pct: number; auto_discount_pct: number; is_open: boolean;
+  priority_capacity: number; priority_upcharge_cents: number; priority_taken: number;
 };
 type OrderRow = {
   id: string; order_code: string; status: string; total_cents: number;
@@ -253,6 +254,19 @@ function VendorDashboard() {
   async function updateCapacity(s: Slot, capacity: number) {
     if (Number.isNaN(capacity) || capacity < 0) return;
     await supabase.from("slots").update({ capacity }).eq("id", s.id);
+    if (vendor) reloadSlots(vendor.id);
+  }
+  async function updatePriorityCap(s: Slot, cap: number) {
+    if (Number.isNaN(cap) || cap < 0) return;
+    await supabase.from("slots").update({ priority_capacity: cap }).eq("id", s.id);
+    if (vendor) reloadSlots(vendor.id);
+  }
+  async function updatePriorityUpcharge(s: Slot, euros: number) {
+    if (Number.isNaN(euros) || euros < 0) return;
+    await supabase
+      .from("slots")
+      .update({ priority_upcharge_cents: Math.round(euros * 100) })
+      .eq("id", s.id);
     if (vendor) reloadSlots(vendor.id);
   }
   async function toggleItemAvail(m: MenuItem) {
@@ -652,6 +666,26 @@ function VendorDashboard() {
                       auto −{Math.round(Number(s.auto_discount_pct))}%
                     </span>
                   )}
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground" title="Priority tier (capacity · upcharge €)">
+                    <span>⚡</span>
+                    <span>{s.priority_taken}/</span>
+                    <input
+                      type="number"
+                      defaultValue={s.priority_capacity}
+                      onBlur={(e) => updatePriorityCap(s, Number(e.target.value))}
+                      className="w-10 rounded border border-border bg-background px-1 py-0.5 text-[10px]"
+                      min={0}
+                    />
+                    <span>€</span>
+                    <input
+                      type="number"
+                      step="0.10"
+                      defaultValue={(s.priority_upcharge_cents / 100).toFixed(2)}
+                      onBlur={(e) => updatePriorityUpcharge(s, Number(e.target.value))}
+                      className="w-12 rounded border border-border bg-background px-1 py-0.5 text-[10px]"
+                      min={0}
+                    />
+                  </div>
                   <button
                     onClick={() => toggleSlotOpen(s)}
                     className={`ml-auto rounded-full px-3 py-1 text-[11px] font-bold ${
@@ -668,6 +702,9 @@ function VendorDashboard() {
 
         {/* Dynamic Pricing Rules */}
         {vendor && <PricingRulesCard vendorId={vendor.id} />}
+
+        {/* Waitlist */}
+        {vendor && <WaitlistCard vendorId={vendor.id} />}
 
         {/* Menu */}
         <section className="mt-6">
@@ -924,6 +961,96 @@ function PricingRulesCard({ vendorId }: { vendorId: string }) {
           ))
         )}
       </ul>
+    </section>
+  );
+}
+
+type WaitlistRow = {
+  id: string;
+  slot_id: string;
+  customer_name: string | null;
+  customer_email: string;
+  party_size: number;
+  status: string;
+  offer_expires_at: string | null;
+  created_at: string;
+};
+
+function WaitlistCard({ vendorId }: { vendorId: string }) {
+  const { lang } = useI18n();
+  const [rows, setRows] = useState<WaitlistRow[]>([]);
+  const [slotLabels, setSlotLabels] = useState<Record<string, string>>({});
+
+  async function load() {
+    const { data } = await supabase
+      .from("waitlist_entries")
+      .select("id, slot_id, customer_name, customer_email, party_size, status, offer_expires_at, created_at")
+      .eq("vendor_id", vendorId)
+      .in("status", ["waiting", "offered"])
+      .order("created_at", { ascending: true });
+    const list = (data ?? []) as WaitlistRow[];
+    setRows(list);
+    const ids = Array.from(new Set(list.map((r) => r.slot_id)));
+    if (ids.length) {
+      const { data: s } = await supabase
+        .from("slots")
+        .select("id, date, start_time")
+        .in("id", ids);
+      const map: Record<string, string> = {};
+      for (const row of s ?? []) map[row.id] = `${row.date} · ${String(row.start_time).slice(0, 5)}`;
+      setSlotLabels(map);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    const ch = supabase
+      .channel(`waitlist-${vendorId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "waitlist_entries", filter: `vendor_id=eq.${vendorId}` }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [vendorId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function cancelEntry(id: string) {
+    await supabase.from("waitlist_entries").update({ status: "cancelled" }).eq("id", id);
+    load();
+  }
+
+  return (
+    <section className="mt-6 rounded-2xl border border-border bg-card p-3">
+      <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        {lang === "nl" ? "Wachtlijst" : "Waitlist"}
+      </h2>
+      {rows.length === 0 ? (
+        <div className="mt-2 text-xs text-muted-foreground">
+          {lang === "nl" ? "Geen wachtenden." : "No one waiting."}
+        </div>
+      ) : (
+        <ul className="mt-2 space-y-1">
+          {rows.map((r) => (
+            <li key={r.id} className="flex items-center gap-2 rounded-xl border border-border bg-background p-2 text-xs">
+              <span className="font-mono">{slotLabels[r.slot_id] ?? "…"}</span>
+              <span className="min-w-0 flex-1 truncate">
+                {r.customer_name ?? r.customer_email} · ×{r.party_size}
+              </span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  r.status === "offered" ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {r.status}
+              </span>
+              <button
+                onClick={() => cancelEntry(r.id)}
+                className="text-muted-foreground hover:text-red-600"
+                aria-label="cancel"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

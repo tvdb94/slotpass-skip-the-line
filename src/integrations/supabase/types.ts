@@ -208,10 +208,12 @@ export type Database = {
           customer_user_id: string | null
           discount_cents: number
           id: string
+          is_priority: boolean
           no_show_at: string | null
           order_code: string
           paid_at: string | null
           platform_fee_cents: number
+          priority_upcharge_cents: number
           qr_token: string | null
           reminder_sent_at: string | null
           service_fee_cents: number
@@ -234,10 +236,12 @@ export type Database = {
           customer_user_id?: string | null
           discount_cents?: number
           id?: string
+          is_priority?: boolean
           no_show_at?: string | null
           order_code: string
           paid_at?: string | null
           platform_fee_cents?: number
+          priority_upcharge_cents?: number
           qr_token?: string | null
           reminder_sent_at?: string | null
           service_fee_cents?: number
@@ -260,10 +264,12 @@ export type Database = {
           customer_user_id?: string | null
           discount_cents?: number
           id?: string
+          is_priority?: boolean
           no_show_at?: string | null
           order_code?: string
           paid_at?: string | null
           platform_fee_cents?: number
+          priority_upcharge_cents?: number
           qr_token?: string | null
           reminder_sent_at?: string | null
           service_fee_cents?: number
@@ -391,6 +397,9 @@ export type Database = {
           id: string
           is_open: boolean
           orders_count: number
+          priority_capacity: number
+          priority_taken: number
+          priority_upcharge_cents: number
           start_time: string
           vendor_id: string
         }
@@ -403,6 +412,9 @@ export type Database = {
           id?: string
           is_open?: boolean
           orders_count?: number
+          priority_capacity?: number
+          priority_taken?: number
+          priority_upcharge_cents?: number
           start_time: string
           vendor_id: string
         }
@@ -415,6 +427,9 @@ export type Database = {
           id?: string
           is_open?: boolean
           orders_count?: number
+          priority_capacity?: number
+          priority_taken?: number
+          priority_upcharge_cents?: number
           start_time?: string
           vendor_id?: string
         }
@@ -645,6 +660,76 @@ export type Database = {
         }
         Relationships: []
       }
+      waitlist_entries: {
+        Row: {
+          claimed_order_id: string | null
+          created_at: string
+          customer_email: string
+          customer_name: string | null
+          customer_user_id: string | null
+          id: string
+          offer_expires_at: string | null
+          offered_at: string | null
+          party_size: number
+          slot_id: string
+          status: string
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          claimed_order_id?: string | null
+          created_at?: string
+          customer_email: string
+          customer_name?: string | null
+          customer_user_id?: string | null
+          id?: string
+          offer_expires_at?: string | null
+          offered_at?: string | null
+          party_size?: number
+          slot_id: string
+          status?: string
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          claimed_order_id?: string | null
+          created_at?: string
+          customer_email?: string
+          customer_name?: string | null
+          customer_user_id?: string | null
+          id?: string
+          offer_expires_at?: string | null
+          offered_at?: string | null
+          party_size?: number
+          slot_id?: string
+          status?: string
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waitlist_entries_claimed_order_id_fkey"
+            columns: ["claimed_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waitlist_entries_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "slots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waitlist_entries_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -660,6 +745,7 @@ export type Database = {
         }
         Returns: string
       }
+      claim_waitlist_offer: { Args: { _entry_id: string }; Returns: string }
       decrement_stock: {
         Args: { _item_id: string; _qty: number }
         Returns: number
@@ -677,10 +763,12 @@ export type Database = {
           customer_user_id: string | null
           discount_cents: number
           id: string
+          is_priority: boolean
           no_show_at: string | null
           order_code: string
           paid_at: string | null
           platform_fee_cents: number
+          priority_upcharge_cents: number
           qr_token: string | null
           reminder_sent_at: string | null
           service_fee_cents: number
@@ -719,6 +807,7 @@ export type Database = {
         Returns: boolean
       }
       is_vendor_staff: { Args: { _vendor_id: string }; Returns: boolean }
+      promote_waitlist: { Args: never; Returns: number }
       reject_vendor_application: {
         Args: { _application_id: string; _notes: string }
         Returns: undefined

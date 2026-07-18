@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,10 @@ import { createCheckoutSession } from "@/lib/checkout.functions";
 
 export const Route = createFileRoute("/checkout")({
   component: Checkout,
+  validateSearch: (s: Record<string, unknown>) => ({
+    waitlist: typeof s.waitlist === "string" ? s.waitlist : undefined,
+    cancelled: s.cancelled === "1" || s.cancelled === 1 ? 1 : undefined,
+  }),
 });
 
 type Vendor = {
@@ -21,6 +25,7 @@ type Vendor = {
 type Slot = {
   id: string; vendor_id: string; date: string; start_time: string; end_time: string;
   capacity: number; orders_count: number; discount_pct: number; auto_discount_pct: number; is_open: boolean;
+  priority_capacity: number; priority_upcharge_cents: number; priority_taken: number;
 };
 type ItemDiscount = { menu_item_id: string; slot_id: string; discount_pct: number; discount_cents: number };
 
@@ -28,11 +33,15 @@ function Checkout() {
   const { t, lang } = useI18n();
   const { cart, setSlot, clear, totalCents } = useCart();
   const navigate = useNavigate();
+  const search = useSearch({ from: "/checkout" });
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [priority, setPriority] = useState(false);
+  const [waitlistBusy, setWaitlistBusy] = useState(false);
+  const [waitlistMsg, setWaitlistMsg] = useState<string | null>(null);
   const createSession = useServerFn(createCheckoutSession);
 
   const vendorQ = useQuery({
@@ -91,7 +100,6 @@ function Checkout() {
     const today = now.toISOString().slice(0, 10);
     const nowMin = now.getHours() * 60 + now.getMinutes();
     return slots.filter((s) => {
-      if (s.orders_count >= s.capacity) return false;
       const stMin = Number(s.start_time.slice(0, 2)) * 60 + Number(s.start_time.slice(3, 5));
       return s.date > today || (s.date === today && stMin > nowMin);
     });
@@ -103,6 +111,44 @@ function Checkout() {
   }, [availableSlots, cart.slot_id, setSlot]);
 
   const selectedSlot = availableSlots.find((s) => s.id === cart.slot_id) ?? null;
+  const selectedFull = selectedSlot ? selectedSlot.orders_count >= selectedSlot.capacity : false;
+  const priorityAvail = selectedSlot
+    ? (selectedSlot.priority_capacity ?? 0) > 0 &&
+      (selectedSlot.priority_taken ?? 0) < (selectedSlot.priority_capacity ?? 0)
+    : false;
+
+  // Waitlist-offer claim: prefill from entry, force-select its slot, disable priority
+  const waitlistId = search.waitlist;
+  const waitlistQ = useQuery({
+    enabled: !!waitlistId,
+    queryKey: ["waitlist-entry", waitlistId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("waitlist_entries")
+        .select("id, slot_id, status, offer_expires_at, customer_email, customer_name")
+        .eq("id", waitlistId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  useEffect(() => {
+    const w = waitlistQ.data;
+    if (!w) return;
+    if (w.status === "offered" && w.slot_id) {
+      setSlot(w.slot_id);
+      if (!email) setEmail(w.customer_email ?? "");
+      if (!name && w.customer_name) setName(w.customer_name);
+    }
+  }, [waitlistQ.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const waitlistOffer = waitlistQ.data && waitlistQ.data.status === "offered" ? waitlistQ.data : null;
+  const waitlistExpired = waitlistOffer && waitlistOffer.offer_expires_at
+    ? new Date(waitlistOffer.offer_expires_at) < new Date()
+    : false;
+
+  useEffect(() => {
+    if (!priorityAvail) setPriority(false);
+  }, [priorityAvail]);
 
   // Compute per-item discount for the selected slot
   const { subtotalCents, discountCents, serviceFeeCents, totalWithFeeCents, commissionCents } = useMemo(() => {
@@ -127,17 +173,23 @@ function Checkout() {
     const commissionable = subtotal - discount; // vendor commission is on net item revenue, not the platform fee
     const commissionPct = vendor?.commission_pct ?? 0;
     const commissionCents = Math.round((commissionable * Number(commissionPct)) / 100);
+    const priorityUp = priority ? (selectedSlot?.priority_upcharge_cents ?? 0) : 0;
     return {
       subtotalCents: subtotal,
       discountCents: discount,
       serviceFeeCents: fee,
-      totalWithFeeCents: subtotal - discount + fee,
+      totalWithFeeCents: subtotal - discount + fee + priorityUp,
       commissionCents,
     };
-  }, [cart.items, discounts, selectedSlot, vendor]);
+  }, [cart.items, discounts, selectedSlot, vendor, priority]);
 
+  const seatOk =
+    !selectedSlot ||
+    (priority && priorityAvail) ||
+    !!waitlistOffer ||
+    selectedSlot.orders_count < selectedSlot.capacity;
   const canPay =
-    !!vendor && !!selectedSlot && cart.items.length > 0 && name.trim().length > 1 && email.includes("@");
+    !!vendor && !!selectedSlot && seatOk && cart.items.length > 0 && name.trim().length > 1 && email.includes("@");
 
   // Vendors that finished Stripe Connect onboarding accept real payments;
   // demo vendors seeded without a connected account still run the simulate flow.
@@ -238,6 +290,8 @@ function Checkout() {
           customerEmail: email,
           customerPhone: phone || null,
           lang,
+          isPriority: priority && priorityAvail,
+          waitlistEntryId: waitlistOffer ? waitlistOffer.id : null,
         },
       });
       if (!res.url) throw new Error("Stripe returned no checkout URL");
@@ -246,6 +300,29 @@ function Checkout() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setSubmitting(false);
+    }
+  }
+
+  async function joinWaitlist() {
+    if (!vendor || !selectedSlot || !email.includes("@") || name.trim().length < 2) return;
+    setWaitlistBusy(true);
+    setWaitlistMsg(null);
+    try {
+      const { error } = await supabase.from("waitlist_entries").insert({
+        vendor_id: vendor.id,
+        slot_id: selectedSlot.id,
+        customer_name: name,
+        customer_email: email,
+        party_size: cart.items.reduce((n, i) => n + i.quantity, 0),
+      });
+      if (error) throw error;
+      setWaitlistMsg(lang === "nl"
+        ? "Je staat op de wachtlijst. Je krijgt een link zodra er plek vrijkomt."
+        : "You're on the waitlist. We'll email you a link if a spot opens up.");
+    } catch (e) {
+      setWaitlistMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWaitlistBusy(false);
     }
   }
 
@@ -314,10 +391,13 @@ function Checkout() {
                     {list.map((s) => {
                       const active = s.id === cart.slot_id;
                       const full = s.orders_count >= s.capacity;
+                      const hasPri = (s.priority_capacity ?? 0) > 0 &&
+                        (s.priority_taken ?? 0) < (s.priority_capacity ?? 0);
+                      const disabled = full && !hasPri;
                       return (
                         <button
                           key={s.id}
-                          disabled={full}
+                          disabled={disabled}
                           onClick={() => setSlot(s.id)}
                           className="rounded-full border px-3 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40"
                           style={
@@ -327,6 +407,11 @@ function Checkout() {
                           }
                         >
                           {formatTime(s.start_time)}
+                          {full && hasPri && (
+                            <span className="ml-1 opacity-80">
+                              {lang === "nl" ? "· priority" : "· priority"}
+                            </span>
+                          )}
                           {(() => {
                             const eff = Math.max(s.discount_pct ?? 0, Number(s.auto_discount_pct ?? 0));
                             return eff > 0 ? (
@@ -339,6 +424,71 @@ function Checkout() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Priority tier toggle */}
+          {selectedSlot && priorityAvail && !waitlistOffer && (
+            <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-border bg-card p-3 text-sm">
+              <span>
+                <span className="font-bold">
+                  {lang === "nl" ? "Prioriteit ophaal" : "Priority pickup"}
+                </span>
+                <span className="ml-1 text-xs text-muted-foreground">
+                  {lang === "nl" ? "vooraan in de rij" : "skip the queue"}
+                </span>
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-muted-foreground">
+                  +{formatEUR(selectedSlot.priority_upcharge_cents ?? 0)}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={priority}
+                  onChange={(e) => setPriority(e.target.checked)}
+                  className="h-4 w-4"
+                />
+              </span>
+            </label>
+          )}
+
+          {/* Waitlist offer banner */}
+          {waitlistOffer && !waitlistExpired && (
+            <div className="mt-3 rounded-2xl border border-emerald-300/60 bg-emerald-50 p-3 text-sm text-emerald-800">
+              {lang === "nl"
+                ? "Er is een plek vrijgekomen — bevestig binnen 10 minuten."
+                : "A spot opened up — confirm within 10 minutes."}
+            </div>
+          )}
+          {waitlistOffer && waitlistExpired && (
+            <div className="mt-3 rounded-2xl border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-800">
+              {lang === "nl" ? "Deze aanbieding is verlopen." : "This offer has expired."}
+            </div>
+          )}
+
+          {/* Full-slot waitlist join */}
+          {selectedSlot && selectedFull && !priorityAvail && !waitlistOffer && (
+            <div className="mt-3 rounded-2xl border border-border bg-card p-3 text-sm">
+              <div className="font-bold">
+                {lang === "nl" ? "Deze slot is vol" : "This slot is full"}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {lang === "nl"
+                  ? "Zet je op de wachtlijst; we mailen je zodra er plek vrijkomt."
+                  : "Join the waitlist — we'll email you if a spot opens up."}
+              </div>
+              <button
+                onClick={joinWaitlist}
+                disabled={waitlistBusy || !email.includes("@") || name.trim().length < 2}
+                className="mt-2 rounded-full border border-border px-3 py-1 text-xs font-bold disabled:opacity-40"
+              >
+                {waitlistBusy
+                  ? t("loading")
+                  : lang === "nl" ? "Op wachtlijst" : "Join waitlist"}
+              </button>
+              {waitlistMsg && (
+                <div className="mt-2 text-xs text-muted-foreground">{waitlistMsg}</div>
+              )}
             </div>
           )}
         </section>
@@ -377,6 +527,12 @@ function Checkout() {
             <Row label={`${t("offPeak")} ${t("off")}`} value={`− ${formatEUR(discountCents)}`} />
           )}
           <Row label={t("serviceFee")} value={formatEUR(serviceFeeCents)} />
+          {priority && priorityAvail && selectedSlot && (
+            <Row
+              label={lang === "nl" ? "Prioriteit" : "Priority"}
+              value={`+ ${formatEUR(selectedSlot.priority_upcharge_cents ?? 0)}`}
+            />
+          )}
           <div className="mt-2 flex items-center justify-between border-t border-border pt-2 font-black">
             <span>{t("total")}</span>
             <span style={{ color: primary }}>{formatEUR(totalWithFeeCents)}</span>
