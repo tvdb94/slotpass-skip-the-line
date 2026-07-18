@@ -24,6 +24,12 @@ function Index() {
   const { t, lang } = useI18n();
   const [view, setView] = useState<"list" | "map">("list");
   const [cuisine, setCuisine] = useState<string | "all">("all");
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setSearch(searchInput.trim()), 250);
+    return () => clearTimeout(id);
+  }, [searchInput]);
 
   const vendorsQ = useQuery({
     queryKey: ["vendors"],
@@ -53,8 +59,46 @@ function Index() {
   const vendors = vendorsQ.data ?? [];
   const slots = slotsQ.data ?? [];
 
+  // Search: matches vendor name/cuisine/description and dish names.
+  const searchQ = useQuery({
+    enabled: search.length > 0,
+    queryKey: ["search", search, lang],
+    queryFn: async () => {
+      const term = search.replace(/[%,]/g, " ");
+      const like = `%${term}%`;
+      const [dishRes] = await Promise.all([
+        supabase
+          .from("menu_items")
+          .select("vendor_id,name_nl,name_en")
+          .eq("is_available", true)
+          .or(`name_nl.ilike.${like},name_en.ilike.${like},description_nl.ilike.${like},description_en.ilike.${like}`)
+          .limit(200),
+      ]);
+      const byVendor = new Map<string, string>();
+      for (const d of (dishRes.data ?? []) as { vendor_id: string; name_nl: string; name_en: string }[]) {
+        if (!byVendor.has(d.vendor_id)) byVendor.set(d.vendor_id, lang === "nl" ? d.name_nl : d.name_en);
+      }
+      return byVendor;
+    },
+  });
+
+  const searchActive = search.length > 0;
+  const dishMatches = searchQ.data ?? new Map<string, string>();
+
+  const searched = useMemo(() => {
+    if (!searchActive) return null;
+    const term = search.toLowerCase();
+    return vendors.filter((v) => {
+      const inVendor =
+        v.name.toLowerCase().includes(term) ||
+        v.cuisine.toLowerCase().includes(term) ||
+        (v.description ?? "").toLowerCase().includes(term);
+      return inVendor || dishMatches.has(v.id);
+    });
+  }, [searchActive, search, vendors, dishMatches]);
+
   const cuisines = useMemo(() => Array.from(new Set(vendors.map((v) => v.cuisine))), [vendors]);
-  const filtered = cuisine === "all" ? vendors : vendors.filter((v) => v.cuisine === cuisine);
+  const filtered = searched ?? (cuisine === "all" ? vendors : vendors.filter((v) => v.cuisine === cuisine));
   const featured = vendors.filter((v) => v.is_featured);
 
   // Promo carousel: auto-advance + dot indicators
@@ -106,8 +150,31 @@ function Index() {
     <div className="min-h-screen bg-background pb-10">
       <Header />
 
+      {/* Search bar */}
+      <div className="mx-auto max-w-3xl px-4 pt-4">
+        <div className="relative">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">🔍</span>
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder={t("searchPlaceholder")}
+            className="w-full rounded-full border border-border bg-card py-2.5 pl-9 pr-10 text-sm outline-none focus:border-foreground/40"
+          />
+          {searchInput && (
+            <button
+              onClick={() => setSearchInput("")}
+              aria-label={t("clear")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Location bar */}
-      <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 pt-4">
+      <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 pt-3">
         <div className="min-w-0 flex-1">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">📍 {lang === "nl" ? "Bezorging bij" : "Pickup near"}</div>
           <button className="mt-0.5 flex items-center gap-1.5 text-left">
@@ -133,12 +200,12 @@ function Index() {
 
       {view === "map" ? (
         <div className="mx-auto mt-4 h-[70vh] max-w-3xl overflow-hidden rounded-2xl border border-border">
-          <ClientMap vendors={vendors.map((v) => ({ id: v.id, slug: v.slug, name: v.name, cuisine: v.cuisine, lat: v.lat, lng: v.lng, brand_primary: v.brand_primary }))} />
+          <ClientMap vendors={filtered.map((v) => ({ id: v.id, slug: v.slug, name: v.name, cuisine: v.cuisine, lat: v.lat, lng: v.lng, brand_primary: v.brand_primary }))} />
         </div>
       ) : (
         <>
-          {/* Promo carousel */}
-          {featured.length > 0 && (
+          {/* Promo carousel — hide during search */}
+          {!searchActive && featured.length > 0 && (
             <section className="mt-5">
               <h2 className="mx-auto max-w-3xl px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 {t("featured")}
@@ -185,7 +252,8 @@ function Index() {
             </section>
           )}
 
-          {/* Cuisine chips */}
+          {/* Cuisine chips — hide during search */}
+          {!searchActive && (
           <section className="mt-4">
             <div className="flex gap-2 overflow-x-auto px-4 pb-1">
               <Chip active={cuisine === "all"} onClick={() => setCuisine("all")}>{t("all")}</Chip>
@@ -194,10 +262,13 @@ function Index() {
               ))}
             </div>
           </section>
+          )}
 
           {/* Vendor list */}
           <section className="mx-auto mt-5 max-w-3xl px-4">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("nearby")}</h2>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {searchActive ? `${t("searchResults")} · "${search}"` : t("nearby")}
+            </h2>
             {vendorsQ.isLoading ? (
               <ul className="mt-3 space-y-3">
                 {[0, 1, 2].map((i) => (
@@ -214,8 +285,17 @@ function Index() {
             ) : filtered.length === 0 ? (
               <div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
                 <div className="text-3xl">🍽️</div>
-                <div className="mt-2 font-semibold text-foreground">{t("noVendors")}</div>
-                {cuisine !== "all" && (
+                <div className="mt-2 font-semibold text-foreground">
+                  {searchActive ? `${t("noSearchResults")} "${search}"` : t("noVendors")}
+                </div>
+                {searchActive ? (
+                  <button
+                    onClick={() => setSearchInput("")}
+                    className="mt-3 rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold"
+                  >
+                    {t("clear")}
+                  </button>
+                ) : cuisine !== "all" && (
                   <button
                     onClick={() => setCuisine("all")}
                     className="mt-3 rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold"
@@ -228,6 +308,7 @@ function Index() {
               <ul className="mt-3 space-y-3">
                 {filtered.map((v) => {
                   const m = meta.get(v.id);
+                  const dishHit = dishMatches.get(v.id);
                   return (
                     <li key={v.id} className="animate-fade-in">
                       <a
@@ -248,6 +329,11 @@ function Index() {
                             <span className="ml-auto shrink-0 text-xs font-semibold">★ {v.rating?.toFixed(1)}</span>
                           </div>
                           <div className="mt-0.5 truncate text-xs text-muted-foreground">{v.cuisine} · {v.address}</div>
+                          {searchActive && dishHit && (
+                            <div className="mt-1 truncate text-[11px] text-muted-foreground">
+                              <span className="font-semibold text-foreground">{t("matchedDish")}:</span> {dishHit}
+                            </div>
+                          )}
                           <div className="mt-2 flex flex-wrap items-center gap-1.5">
                             {m?.next ? (
                               <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground">
