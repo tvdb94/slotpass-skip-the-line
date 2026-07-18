@@ -32,15 +32,14 @@ function OrderPage() {
   const q = useQuery({
     queryKey: ["order", code],
     queryFn: async () => {
-      const { data: order, error } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("order_code", code)
-        .maybeSingle();
+      // Uses a security-definer RPC so anon can read a single order by its unguessable code
+      // without opening up SELECT on orders to the public.
+      const { data: rows, error } = await supabase.rpc("get_order_by_code", { _code: code });
       if (error) throw error;
+      const order = Array.isArray(rows) ? rows[0] : null;
       if (!order) throw new Error("Order not found");
       const [items, vendor, slot] = await Promise.all([
-        supabase.from("order_items").select("*").eq("order_id", order.id),
+        supabase.rpc("get_order_items_by_code", { _code: code }),
         supabase.from("vendors").select("name,slug,brand_primary,address,logo_url").eq("id", order.vendor_id).maybeSingle(),
         supabase.from("slots").select("date,start_time,end_time").eq("id", order.slot_id).maybeSingle(),
       ]);
