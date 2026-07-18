@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import type { MapVendor } from "./VendorMap.client";
+import type { MapVendor } from "./map-types";
 
-const VendorMap = lazy(() => import("./VendorMap.client"));
+const VendorMap = lazy(() => import("./VendorMap"));
 
 export function ClientMap({ vendors }: { vendors: MapVendor[] }) {
   const [mounted, setMounted] = useState(false);
