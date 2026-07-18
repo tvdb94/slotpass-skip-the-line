@@ -88,6 +88,7 @@ export type Database = {
       menu_items: {
         Row: {
           category_id: string | null
+          daily_stock: number | null
           description_en: string | null
           description_nl: string | null
           id: string
@@ -97,10 +98,13 @@ export type Database = {
           name_nl: string
           price_cents: number
           sort_order: number | null
+          stock_date: string | null
+          stock_remaining: number | null
           vendor_id: string
         }
         Insert: {
           category_id?: string | null
+          daily_stock?: number | null
           description_en?: string | null
           description_nl?: string | null
           id?: string
@@ -110,10 +114,13 @@ export type Database = {
           name_nl: string
           price_cents: number
           sort_order?: number | null
+          stock_date?: string | null
+          stock_remaining?: number | null
           vendor_id: string
         }
         Update: {
           category_id?: string | null
+          daily_stock?: number | null
           description_en?: string | null
           description_nl?: string | null
           id?: string
@@ -123,6 +130,8 @@ export type Database = {
           name_nl?: string
           price_cents?: number
           sort_order?: number | null
+          stock_date?: string | null
+          stock_remaining?: number | null
           vendor_id?: string
         }
         Relationships: [
@@ -651,6 +660,10 @@ export type Database = {
         }
         Returns: string
       }
+      decrement_stock: {
+        Args: { _item_id: string; _qty: number }
+        Returns: number
+      }
       get_order_by_code: {
         Args: { _code: string }
         Returns: {
@@ -710,6 +723,7 @@ export type Database = {
         Args: { _application_id: string; _notes: string }
         Returns: undefined
       }
+      reset_daily_stock: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "vendor" | "customer"
