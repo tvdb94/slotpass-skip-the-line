@@ -689,6 +689,20 @@ function VendorDashboard() {
                     min={0}
                   />
                 </div>
+                <div className="flex items-center gap-1 text-xs" title="Daily stock (blank = unlimited)">
+                  <span className="text-muted-foreground">📦</span>
+                  <input
+                    type="number"
+                    placeholder="∞"
+                    defaultValue={m.daily_stock ?? ""}
+                    onBlur={(e) => updateDailyStock(m, e.target.value)}
+                    className="w-14 rounded border border-border bg-background px-1 py-0.5 text-xs"
+                    min={0}
+                  />
+                  {m.daily_stock != null && (
+                    <span className="text-[10px] text-muted-foreground">/{m.stock_remaining ?? 0}</span>
+                  )}
+                </div>
                 <button
                   onClick={() => toggleItemAvail(m)}
                   className={`rounded-full px-3 py-1 text-[11px] font-bold ${
