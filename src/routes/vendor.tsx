@@ -256,6 +256,19 @@ function VendorDashboard() {
     await supabase.from("slots").update({ capacity }).eq("id", s.id);
     if (vendor) reloadSlots(vendor.id);
   }
+  async function updatePriorityCap(s: Slot, cap: number) {
+    if (Number.isNaN(cap) || cap < 0) return;
+    await supabase.from("slots").update({ priority_capacity: cap }).eq("id", s.id);
+    if (vendor) reloadSlots(vendor.id);
+  }
+  async function updatePriorityUpcharge(s: Slot, euros: number) {
+    if (Number.isNaN(euros) || euros < 0) return;
+    await supabase
+      .from("slots")
+      .update({ priority_upcharge_cents: Math.round(euros * 100) })
+      .eq("id", s.id);
+    if (vendor) reloadSlots(vendor.id);
+  }
   async function toggleItemAvail(m: MenuItem) {
     await supabase.from("menu_items").update({ is_available: !m.is_available }).eq("id", m.id);
     if (vendor) reloadMenu(vendor.id);
