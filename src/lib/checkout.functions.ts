@@ -13,6 +13,8 @@ const InputSchema = z.object({
   customerEmail: z.string().email().max(200),
   customerPhone: z.string().max(40).optional().nullable(),
   lang: z.enum(["nl", "en"]).default("nl"),
+  isPriority: z.boolean().default(false),
+  waitlistEntryId: z.string().uuid().optional().nullable(),
 });
 
 function generateOrderCode() {
@@ -57,13 +59,40 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     // 2. Slot capacity check
     const { data: slot, error: sErr } = await supabaseAdmin
       .from("slots")
-      .select("id, vendor_id, date, start_time, capacity, orders_count, discount_pct, auto_discount_pct, is_open")
+      .select("id, vendor_id, date, start_time, capacity, orders_count, discount_pct, auto_discount_pct, is_open, priority_capacity, priority_upcharge_cents, priority_taken")
       .eq("id", data.slotId)
       .maybeSingle();
     if (sErr || !slot) throw new Error("Slot not found");
     if (slot.vendor_id !== vendor.id) throw new Error("Slot does not belong to this vendor");
     if (!slot.is_open) throw new Error("Slot is closed");
-    if ((slot.orders_count ?? 0) >= slot.capacity) throw new Error("Slot is full");
+
+    // Waitlist claim short-circuits the "full" check
+    let claimedFromWaitlist = false;
+    if (data.waitlistEntryId) {
+      const { data: entry } = await supabaseAdmin
+        .from("waitlist_entries")
+        .select("id, slot_id, status, offer_expires_at, customer_email")
+        .eq("id", data.waitlistEntryId)
+        .maybeSingle();
+      if (!entry || entry.slot_id !== slot.id) throw new Error("Waitlist entry invalid");
+      if (entry.status !== "offered") throw new Error("Waitlist offer no longer active");
+      if (!entry.offer_expires_at || new Date(entry.offer_expires_at) < new Date()) {
+        throw new Error("Waitlist offer expired");
+      }
+      if (entry.customer_email.toLowerCase() !== data.customerEmail.toLowerCase()) {
+        throw new Error("Waitlist offer is for a different email");
+      }
+      claimedFromWaitlist = true;
+    }
+
+    if (data.isPriority) {
+      const pCap = slot.priority_capacity ?? 0;
+      const pTaken = slot.priority_taken ?? 0;
+      if (pCap <= 0) throw new Error("No priority tier for this slot");
+      if (pTaken >= pCap) throw new Error("Priority tier is full");
+    } else if (!claimedFromWaitlist) {
+      if ((slot.orders_count ?? 0) >= slot.capacity) throw new Error("Slot is full");
+    }
 
     // 3. Trusted item pricing
     const menuIds = data.items.map((i) => i.menu_item_id);
@@ -142,10 +171,11 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       });
     }
     const platformFee = vendor.service_fee_cents ?? 0;
+    const priorityUpcharge = data.isPriority ? (slot.priority_upcharge_cents ?? 0) : 0;
     const commissionable = subtotal - discount;
     const commissionPct = Number(vendor.commission_pct ?? 0);
     const commission = Math.round((commissionable * commissionPct) / 100);
-    const totalWithFee = subtotal - discount + platformFee;
+    const totalWithFee = subtotal - discount + platformFee + priorityUpcharge;
     if (totalWithFee <= 0) throw new Error("Order total must be positive");
     const appFee = applicationFeeCents(platformFee, commission);
 
@@ -170,10 +200,20 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         customer_email: data.customerEmail,
         customer_phone: data.customerPhone || null,
         qr_token: qrToken,
+        is_priority: data.isPriority,
+        priority_upcharge_cents: priorityUpcharge,
       })
       .select()
       .single();
     if (oErr || !order) throw new Error(oErr?.message ?? "Failed to create order");
+
+    // Mark waitlist entry as claimed with this order (best-effort)
+    if (data.waitlistEntryId) {
+      await supabaseAdmin
+        .from("waitlist_entries")
+        .update({ status: "claimed", claimed_order_id: order.id })
+        .eq("id", data.waitlistEntryId);
+    }
 
     await supabaseAdmin.from("order_items").insert(
       orderItems.map((r) => ({ ...r, order_id: order.id })),
