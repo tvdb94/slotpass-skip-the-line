@@ -34,6 +34,7 @@ type OrderRow = {
 };
 type MenuItem = {
   id: string; name_nl: string; name_en: string; price_cents: number; is_available: boolean | null;
+  daily_stock: number | null; stock_remaining: number | null;
 };
 type AnalyticsRow = {
   status: string; total_cents: number; commission_cents: number; created_at: string; id: string;
@@ -172,7 +173,7 @@ function VendorDashboard() {
   async function reloadMenu(vendorId: string) {
     const { data } = await supabase
       .from("menu_items")
-      .select("id,name_nl,name_en,price_cents,is_available")
+      .select("id,name_nl,name_en,price_cents,is_available,daily_stock,stock_remaining")
       .eq("vendor_id", vendorId)
       .order("sort_order");
     setItems((data ?? []) as MenuItem[]);
@@ -261,6 +262,22 @@ function VendorDashboard() {
   async function updatePrice(m: MenuItem, priceCents: number) {
     if (Number.isNaN(priceCents) || priceCents < 0) return;
     await supabase.from("menu_items").update({ price_cents: priceCents }).eq("id", m.id);
+    if (vendor) reloadMenu(vendor.id);
+  }
+  async function updateDailyStock(m: MenuItem, raw: string) {
+    const trimmed = raw.trim();
+    if (trimmed === "") {
+      await supabase.from("menu_items")
+        .update({ daily_stock: null, stock_remaining: null, stock_date: null })
+        .eq("id", m.id);
+    } else {
+      const n = Math.max(0, Math.floor(Number(trimmed)));
+      if (Number.isNaN(n)) return;
+      const today = new Date().toISOString().slice(0, 10);
+      await supabase.from("menu_items")
+        .update({ daily_stock: n, stock_remaining: n, stock_date: today })
+        .eq("id", m.id);
+    }
     if (vendor) reloadMenu(vendor.id);
   }
 
