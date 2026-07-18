@@ -469,3 +469,12 @@ function VendorDashboard() {
     </div>
   );
 }
+
+function StatCard({ label, value, accent }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-3">
+      <div className="truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="mt-1 text-base font-black" style={accent ? { color: accent } : undefined}>{value}</div>
+    </div>
+  );
+}
