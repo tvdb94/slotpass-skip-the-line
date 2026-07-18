@@ -22,10 +22,11 @@ function generateOrderCode() {
   return out;
 }
 
-function getOrigin(): string {
-  const envOrigin = process.env.PUBLIC_APP_ORIGIN;
-  if (envOrigin) return envOrigin.replace(/\/$/, "");
-  return "http://localhost:8080";
+async function getOrigin(): Promise<string> {
+  const { getRequest } = await import("@tanstack/react-start/server");
+  const req = getRequest();
+  const url = new URL(req.url);
+  return `${url.protocol}//${url.host}`;
 }
 
 /**
@@ -154,7 +155,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
     // 7. Stripe Checkout Session (destination charge + application fee)
     const stripe = getStripe();
-    const origin = getOrigin();
+    const origin = await getOrigin();
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       locale: data.lang === "nl" ? "nl" : "en",

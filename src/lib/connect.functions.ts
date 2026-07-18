@@ -20,10 +20,12 @@ async function getVendorForCaller(supabase: import("@supabase/supabase-js").Supa
   return staff;
 }
 
-function getOrigin(): string {
-  const envOrigin = process.env.PUBLIC_APP_ORIGIN;
-  if (envOrigin) return envOrigin.replace(/\/$/, "");
-  return "http://localhost:8080";
+async function getOrigin(): Promise<string> {
+  // Derive from the incoming request so we work on preview + production without extra env config.
+  const { getRequest } = await import("@tanstack/react-start/server");
+  const req = getRequest();
+  const url = new URL(req.url);
+  return `${url.protocol}//${url.host}`;
 }
 
 // ---------- 1) Create / refresh Express onboarding link ----------
@@ -69,7 +71,7 @@ export const createOnboardingLink = createServerFn({ method: "POST" })
       if (uErr) throw uErr;
     }
 
-    const origin = getOrigin();
+    const origin = await getOrigin();
     const link = await stripe.accountLinks.create({
       account: accountId,
       type: "account_onboarding",
