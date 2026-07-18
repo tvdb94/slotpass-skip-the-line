@@ -125,7 +125,7 @@ function Checkout() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("waitlist_entries")
-        .select("id, slot_id, status, offer_expires_at, customer_email, customer_name, customer_phone")
+        .select("id, slot_id, status, offer_expires_at, customer_email, customer_name")
         .eq("id", waitlistId!)
         .maybeSingle();
       if (error) throw error;
@@ -139,7 +139,6 @@ function Checkout() {
       setSlot(w.slot_id);
       if (!email) setEmail(w.customer_email ?? "");
       if (!name && w.customer_name) setName(w.customer_name);
-      if (!phone && w.customer_phone) setPhone(w.customer_phone);
     }
   }, [waitlistQ.data]); // eslint-disable-line react-hooks/exhaustive-deps
   const waitlistOffer = waitlistQ.data && waitlistQ.data.status === "offered" ? waitlistQ.data : null;
@@ -305,7 +304,6 @@ function Checkout() {
         slot_id: selectedSlot.id,
         customer_name: name,
         customer_email: email,
-        customer_phone: phone || null,
         party_size: cart.items.reduce((n, i) => n + i.quantity, 0),
       });
       if (error) throw error;
