@@ -194,11 +194,14 @@ export type Database = {
           customer_email: string | null
           customer_name: string | null
           customer_phone: string | null
+          customer_user_id: string | null
           discount_cents: number
           id: string
+          no_show_at: string | null
           order_code: string
           paid_at: string | null
           qr_token: string | null
+          reminder_sent_at: string | null
           service_fee_cents: number
           slot_id: string
           status: string
@@ -213,11 +216,14 @@ export type Database = {
           customer_email?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          customer_user_id?: string | null
           discount_cents?: number
           id?: string
+          no_show_at?: string | null
           order_code: string
           paid_at?: string | null
           qr_token?: string | null
+          reminder_sent_at?: string | null
           service_fee_cents?: number
           slot_id: string
           status?: string
@@ -232,11 +238,14 @@ export type Database = {
           customer_email?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          customer_user_id?: string | null
           discount_cents?: number
           id?: string
+          no_show_at?: string | null
           order_code?: string
           paid_at?: string | null
           qr_token?: string | null
+          reminder_sent_at?: string | null
           service_fee_cents?: number
           slot_id?: string
           status?: string
@@ -255,6 +264,51 @@ export type Database = {
           },
           {
             foreignKeyName: "orders_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reviews: {
+        Row: {
+          comment: string | null
+          created_at: string
+          customer_user_id: string | null
+          id: string
+          order_id: string
+          rating: number
+          vendor_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          customer_user_id?: string | null
+          id?: string
+          order_id: string
+          rating: number
+          vendor_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          customer_user_id?: string | null
+          id?: string
+          order_id?: string
+          rating?: number
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_vendor_id_fkey"
             columns: ["vendor_id"]
             isOneToOne: false
             referencedRelation: "vendors"
@@ -349,6 +403,7 @@ export type Database = {
           description: string | null
           featured_headline_en: string | null
           featured_headline_nl: string | null
+          grace_minutes: number
           hero_url: string | null
           id: string
           is_active: boolean | null
@@ -358,9 +413,11 @@ export type Database = {
           logo_url: string | null
           name: string
           rating: number | null
+          rating_count: number
           service_fee_cents: number | null
           slug: string
           timezone: string | null
+          updated_at: string
         }
         Insert: {
           address?: string | null
@@ -372,6 +429,7 @@ export type Database = {
           description?: string | null
           featured_headline_en?: string | null
           featured_headline_nl?: string | null
+          grace_minutes?: number
           hero_url?: string | null
           id?: string
           is_active?: boolean | null
@@ -381,9 +439,11 @@ export type Database = {
           logo_url?: string | null
           name: string
           rating?: number | null
+          rating_count?: number
           service_fee_cents?: number | null
           slug: string
           timezone?: string | null
+          updated_at?: string
         }
         Update: {
           address?: string | null
@@ -395,6 +455,7 @@ export type Database = {
           description?: string | null
           featured_headline_en?: string | null
           featured_headline_nl?: string | null
+          grace_minutes?: number
           hero_url?: string | null
           id?: string
           is_active?: boolean | null
@@ -404,9 +465,11 @@ export type Database = {
           logo_url?: string | null
           name?: string
           rating?: number | null
+          rating_count?: number
           service_fee_cents?: number | null
           slug?: string
           timezone?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
