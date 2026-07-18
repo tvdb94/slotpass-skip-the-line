@@ -233,10 +233,13 @@ function VendorPage() {
                     {items.map((item) => {
                       const name = lang === "nl" ? item.name_nl : item.name_en;
                       const desc = lang === "nl" ? item.description_nl : item.description_en;
+                      const isStocked = item.daily_stock != null;
+                      const remaining = item.stock_remaining ?? 0;
+                      const soldOut = isStocked && remaining <= 0;
                       return (
                         <li
                           key={item.id}
-                          className="flex gap-3 rounded-2xl border border-border bg-card p-3"
+                          className={`flex gap-3 rounded-2xl border border-border bg-card p-3 ${soldOut ? "opacity-60" : ""}`}
                         >
                           {item.image_url && (
                             <img src={item.image_url} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
@@ -249,7 +252,21 @@ function VendorPage() {
                               </span>
                             </div>
                             {desc && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{desc}</p>}
+                            {isStocked && (
+                              <div className="mt-1 text-[11px] font-bold">
+                                {soldOut ? (
+                                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-700">
+                                    {lang === "nl" ? "Uitverkocht" : "Sold out"}
+                                  </span>
+                                ) : (
+                                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">
+                                    {remaining} {lang === "nl" ? "over vandaag" : "left today"}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             <button
+                              disabled={soldOut}
                               onClick={() =>
                                 addItem(
                                   { id: vendor.id, slug: vendor.slug },
@@ -261,7 +278,7 @@ function VendorPage() {
                                   },
                                 )
                               }
-                              className="mt-2 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-white"
+                              className="mt-2 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
                               style={{ background: primary }}
                             >
                               + {t("addToCart")}
