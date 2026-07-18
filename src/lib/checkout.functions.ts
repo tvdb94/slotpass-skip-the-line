@@ -215,6 +215,14 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         .eq("id", data.waitlistEntryId);
     }
 
+    // Reserve the priority seat immediately so the tier can't oversell during pending payment.
+    if (data.isPriority) {
+      await supabaseAdmin
+        .from("slots")
+        .update({ priority_taken: (slot.priority_taken ?? 0) + 1 })
+        .eq("id", slot.id);
+    }
+
     await supabaseAdmin.from("order_items").insert(
       orderItems.map((r) => ({ ...r, order_id: order.id })),
     );
