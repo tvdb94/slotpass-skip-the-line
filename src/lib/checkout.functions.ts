@@ -69,13 +69,37 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     const menuIds = data.items.map((i) => i.menu_item_id);
     const { data: menuRows } = await supabaseAdmin
       .from("menu_items")
-      .select("id, name_nl, name_en, price_cents, is_available, vendor_id")
+      .select("id, name_nl, name_en, price_cents, is_available, vendor_id, daily_stock, stock_remaining")
       .in("id", menuIds);
     const menu = new Map((menuRows ?? []).map((m) => [m.id, m]));
     for (const it of data.items) {
       const m = menu.get(it.menu_item_id);
       if (!m || m.vendor_id !== vendor.id) throw new Error("Menu item not available");
       if (m.is_available === false) throw new Error(`${m.name_nl} is currently unavailable`);
+      if (m.daily_stock != null) {
+        if ((m.stock_remaining ?? 0) < it.quantity) {
+          throw new Error(`${m.name_nl} is sold out`);
+        }
+      }
+    }
+
+    // 3b. Atomically decrement stock for each stocked item. If any fails, roll back.
+    const decremented: Array<{ id: string; qty: number }> = [];
+    for (const it of data.items) {
+      const m = menu.get(it.menu_item_id)!;
+      if (m.daily_stock == null) continue;
+      const { data: n, error: dErr } = await supabaseAdmin.rpc("decrement_stock", {
+        _item_id: m.id,
+        _qty: it.quantity,
+      });
+      if (dErr || !n || n < 1) {
+        // Roll back previous decrements
+        for (const p of decremented) {
+          await supabaseAdmin.rpc("decrement_stock", { _item_id: p.id, _qty: -p.qty });
+        }
+        throw new Error(`${m.name_nl} just sold out`);
+      }
+      decremented.push({ id: m.id, qty: it.quantity });
     }
 
     // 4. Discounts
