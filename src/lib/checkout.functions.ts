@@ -96,10 +96,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       subtotal += lineTotal;
 
       const d = (discounts ?? []).find((x) => x.menu_item_id === it.menu_item_id);
+      const dPct = d?.discount_pct ?? 0;
+      const dCents = d?.discount_cents ?? 0;
       let lineDiscount = 0;
       if (d) {
-        if (d.discount_pct > 0) lineDiscount = Math.round((lineTotal * d.discount_pct) / 100);
-        else if (d.discount_cents > 0) lineDiscount = d.discount_cents * it.quantity;
+        if (dPct > 0) lineDiscount = Math.round((lineTotal * dPct) / 100);
+        else if (dCents > 0) lineDiscount = dCents * it.quantity;
       } else if (slot.discount_pct > 0) {
         lineDiscount = Math.round((lineTotal * slot.discount_pct) / 100);
       }
@@ -157,9 +159,8 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       mode: "payment",
       locale: data.lang === "nl" ? "nl" : "en",
       customer_email: data.customerEmail,
-      // Automatic PMs picks up iDEAL, Apple Pay, Google Pay, cards, etc. based on
-      // the payment methods activated in the platform's Stripe dashboard.
-      automatic_payment_methods: { enabled: true },
+      // Payment methods (iDEAL, cards, Apple/Google Pay wallets, etc.) come from the
+      // platform's Stripe dashboard settings when payment_method_types is omitted.
       line_items: [
         {
           quantity: 1,

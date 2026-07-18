@@ -18,6 +18,8 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OrderCodeRouteImport } from './routes/order.$code'
+import { Route as ApiPublicWebhooksStripeConnectRouteImport } from './routes/api/public/webhooks/stripe-connect'
+import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public/webhooks/stripe'
 import { Route as ApiPublicHooksSendRemindersRouteImport } from './routes/api/public/hooks/send-reminders'
 import { Route as ApiPublicHooksMarkNoShowsRouteImport } from './routes/api/public/hooks/mark-no-shows'
 
@@ -66,6 +68,17 @@ const OrderCodeRoute = OrderCodeRouteImport.update({
   path: '/order/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicWebhooksStripeConnectRoute =
+  ApiPublicWebhooksStripeConnectRouteImport.update({
+    id: '/api/public/webhooks/stripe-connect',
+    path: '/api/public/webhooks/stripe-connect',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWebhooksStripeRoute = ApiPublicWebhooksStripeRouteImport.update({
+  id: '/api/public/webhooks/stripe',
+  path: '/api/public/webhooks/stripe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksSendRemindersRoute =
   ApiPublicHooksSendRemindersRouteImport.update({
     id: '/api/public/hooks/send-reminders',
@@ -91,6 +104,8 @@ export interface FileRoutesByFullPath {
   '/order/$code': typeof OrderCodeRoute
   '/api/public/hooks/mark-no-shows': typeof ApiPublicHooksMarkNoShowsRoute
   '/api/public/hooks/send-reminders': typeof ApiPublicHooksSendRemindersRoute
+  '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
+  '/api/public/webhooks/stripe-connect': typeof ApiPublicWebhooksStripeConnectRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -104,6 +119,8 @@ export interface FileRoutesByTo {
   '/order/$code': typeof OrderCodeRoute
   '/api/public/hooks/mark-no-shows': typeof ApiPublicHooksMarkNoShowsRoute
   '/api/public/hooks/send-reminders': typeof ApiPublicHooksSendRemindersRoute
+  '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
+  '/api/public/webhooks/stripe-connect': typeof ApiPublicWebhooksStripeConnectRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -118,6 +135,8 @@ export interface FileRoutesById {
   '/order/$code': typeof OrderCodeRoute
   '/api/public/hooks/mark-no-shows': typeof ApiPublicHooksMarkNoShowsRoute
   '/api/public/hooks/send-reminders': typeof ApiPublicHooksSendRemindersRoute
+  '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
+  '/api/public/webhooks/stripe-connect': typeof ApiPublicWebhooksStripeConnectRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -133,6 +152,8 @@ export interface FileRouteTypes {
     | '/order/$code'
     | '/api/public/hooks/mark-no-shows'
     | '/api/public/hooks/send-reminders'
+    | '/api/public/webhooks/stripe'
+    | '/api/public/webhooks/stripe-connect'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -146,6 +167,8 @@ export interface FileRouteTypes {
     | '/order/$code'
     | '/api/public/hooks/mark-no-shows'
     | '/api/public/hooks/send-reminders'
+    | '/api/public/webhooks/stripe'
+    | '/api/public/webhooks/stripe-connect'
   id:
     | '__root__'
     | '/'
@@ -159,6 +182,8 @@ export interface FileRouteTypes {
     | '/order/$code'
     | '/api/public/hooks/mark-no-shows'
     | '/api/public/hooks/send-reminders'
+    | '/api/public/webhooks/stripe'
+    | '/api/public/webhooks/stripe-connect'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -173,6 +198,8 @@ export interface RootRouteChildren {
   OrderCodeRoute: typeof OrderCodeRoute
   ApiPublicHooksMarkNoShowsRoute: typeof ApiPublicHooksMarkNoShowsRoute
   ApiPublicHooksSendRemindersRoute: typeof ApiPublicHooksSendRemindersRoute
+  ApiPublicWebhooksStripeRoute: typeof ApiPublicWebhooksStripeRoute
+  ApiPublicWebhooksStripeConnectRoute: typeof ApiPublicWebhooksStripeConnectRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -240,6 +267,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrderCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/webhooks/stripe-connect': {
+      id: '/api/public/webhooks/stripe-connect'
+      path: '/api/public/webhooks/stripe-connect'
+      fullPath: '/api/public/webhooks/stripe-connect'
+      preLoaderRoute: typeof ApiPublicWebhooksStripeConnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webhooks/stripe': {
+      id: '/api/public/webhooks/stripe'
+      path: '/api/public/webhooks/stripe'
+      fullPath: '/api/public/webhooks/stripe'
+      preLoaderRoute: typeof ApiPublicWebhooksStripeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/send-reminders': {
       id: '/api/public/hooks/send-reminders'
       path: '/api/public/hooks/send-reminders'
@@ -269,6 +310,8 @@ const rootRouteChildren: RootRouteChildren = {
   OrderCodeRoute: OrderCodeRoute,
   ApiPublicHooksMarkNoShowsRoute: ApiPublicHooksMarkNoShowsRoute,
   ApiPublicHooksSendRemindersRoute: ApiPublicHooksSendRemindersRoute,
+  ApiPublicWebhooksStripeRoute: ApiPublicWebhooksStripeRoute,
+  ApiPublicWebhooksStripeConnectRoute: ApiPublicWebhooksStripeConnectRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
