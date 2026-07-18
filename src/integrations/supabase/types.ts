@@ -190,6 +190,7 @@ export type Database = {
       orders: {
         Row: {
           collected_at: string | null
+          commission_cents: number
           created_at: string | null
           customer_email: string | null
           customer_name: string | null
@@ -212,6 +213,7 @@ export type Database = {
         }
         Insert: {
           collected_at?: string | null
+          commission_cents?: number
           created_at?: string | null
           customer_email?: string | null
           customer_name?: string | null
@@ -234,6 +236,7 @@ export type Database = {
         }
         Update: {
           collected_at?: string | null
+          commission_cents?: number
           created_at?: string | null
           customer_email?: string | null
           customer_name?: string | null
@@ -392,11 +395,98 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vendor_applications: {
+        Row: {
+          address: string | null
+          applicant_user_id: string | null
+          approved_vendor_id: string | null
+          business_name: string
+          contact_email: string
+          contact_name: string
+          created_at: string
+          cuisine: string
+          description: string | null
+          id: string
+          phone: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          applicant_user_id?: string | null
+          approved_vendor_id?: string | null
+          business_name: string
+          contact_email: string
+          contact_name: string
+          created_at?: string
+          cuisine: string
+          description?: string | null
+          id?: string
+          phone?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          applicant_user_id?: string | null
+          approved_vendor_id?: string | null
+          business_name?: string
+          contact_email?: string
+          contact_name?: string
+          created_at?: string
+          cuisine?: string
+          description?: string | null
+          id?: string
+          phone?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_applications_approved_vendor_id_fkey"
+            columns: ["approved_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendors: {
         Row: {
           address: string | null
           brand_primary: string | null
           brand_secondary: string | null
+          commission_pct: number
           created_at: string | null
           cuisine: string
           currency: string | null
@@ -423,6 +513,7 @@ export type Database = {
           address?: string | null
           brand_primary?: string | null
           brand_secondary?: string | null
+          commission_pct?: number
           created_at?: string | null
           cuisine: string
           currency?: string | null
@@ -449,6 +540,7 @@ export type Database = {
           address?: string | null
           brand_primary?: string | null
           brand_secondary?: string | null
+          commission_pct?: number
           created_at?: string | null
           cuisine?: string
           currency?: string | null
@@ -478,10 +570,75 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_vendor_application: {
+        Args: {
+          _application_id: string
+          _brand_primary?: string
+          _commission_pct?: number
+          _service_fee_cents?: number
+          _slug: string
+        }
+        Returns: string
+      }
+      get_order_by_code: {
+        Args: { _code: string }
+        Returns: {
+          collected_at: string | null
+          commission_cents: number
+          created_at: string | null
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          customer_user_id: string | null
+          discount_cents: number
+          id: string
+          no_show_at: string | null
+          order_code: string
+          paid_at: string | null
+          qr_token: string | null
+          reminder_sent_at: string | null
+          service_fee_cents: number
+          slot_id: string
+          status: string
+          stripe_payment_intent_id: string | null
+          subtotal_cents: number
+          total_cents: number
+          vendor_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "orders"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_order_items_by_code: {
+        Args: { _code: string }
+        Returns: {
+          discount_cents: number
+          id: string
+          menu_item_id: string
+          name: string
+          order_id: string
+          quantity: number
+          unit_price_cents: number
+        }[]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       is_vendor_staff: { Args: { _vendor_id: string }; Returns: boolean }
+      reject_vendor_application: {
+        Args: { _application_id: string; _notes: string }
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "vendor" | "customer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -608,6 +765,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "vendor", "customer"],
+    },
   },
 } as const

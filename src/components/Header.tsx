@@ -8,6 +8,7 @@ export function Header() {
   const { t } = useI18n();
   const [isStaff, setIsStaff] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
     let cancel = false;
     const check = async () => {
@@ -15,9 +16,12 @@ export function Header() {
       if (cancel) return;
       const u = data.user;
       setSignedIn(!!u);
-      if (!u) { setIsStaff(false); return; }
+      if (!u) { setIsStaff(false); setIsAdmin(false); return; }
       const { data: s } = await supabase.from("staff").select("vendor_id").eq("auth_user_id", u.id).maybeSingle();
       if (!cancel) setIsStaff(!!s);
+      const { data: role } = await supabase
+        .from("user_roles").select("role").eq("user_id", u.id).eq("role", "admin").maybeSingle();
+      if (!cancel) setIsAdmin(!!role);
     };
     check();
     const { data: sub } = supabase.auth.onAuthStateChange(() => check());
@@ -37,6 +41,14 @@ export function Header() {
         </Link>
         <div className="flex items-center gap-2">
           <LanguageToggle />
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold"
+            >
+              {t("admin")}
+            </Link>
+          )}
           {isStaff && (
             <Link
               to="/vendor"
@@ -51,6 +63,14 @@ export function Header() {
               className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold"
             >
               {t("myOrders")}
+            </Link>
+          )}
+          {!isStaff && (
+            <Link
+              to="/become-vendor"
+              className="hidden rounded-full border border-border px-3 py-1.5 text-xs font-semibold sm:inline-block"
+            >
+              {t("becomeVendor")}
             </Link>
           )}
           {signedIn ? (

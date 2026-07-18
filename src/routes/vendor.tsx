@@ -22,6 +22,10 @@ type OrderRow = {
 type MenuItem = {
   id: string; name_nl: string; name_en: string; price_cents: number; is_available: boolean | null;
 };
+type AnalyticsRow = {
+  status: string; total_cents: number; commission_cents: number; created_at: string; id: string;
+};
+type TopItem = { name: string; qty: number; revenue_cents: number };
 
 function VendorDashboard() {
   const { t, lang } = useI18n();
@@ -33,6 +37,8 @@ function VendorDashboard() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [scan, setScan] = useState("");
   const [flash, setFlash] = useState<string | null>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsRow[]>([]);
+  const [topItems, setTopItems] = useState<TopItem[]>([]);
 
   // Bootstrap: resolve current user -> staff -> vendor -> data
   useEffect(() => {
@@ -50,7 +56,7 @@ function VendorDashboard() {
       const v = (staff?.vendors ?? null) as Vendor | null;
       if (!v) { setLoading(false); setNotLinked(true); return; }
       setVendor(v);
-      await Promise.all([reloadSlots(v.id), reloadOrders(v.id), reloadMenu(v.id)]);
+      await Promise.all([reloadSlots(v.id), reloadOrders(v.id), reloadMenu(v.id), reloadAnalytics(v.id)]);
       if (!cancel) setLoading(false);
     })();
     return () => { cancel = true; };
@@ -65,7 +71,7 @@ function VendorDashboard() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "orders", filter: `vendor_id=eq.${vendor.id}` },
-        () => { reloadOrders(vendor.id); reloadSlots(vendor.id); },
+        () => { reloadOrders(vendor.id); reloadSlots(vendor.id); reloadAnalytics(vendor.id); },
       )
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -100,6 +106,32 @@ function VendorDashboard() {
       .eq("vendor_id", vendorId)
       .order("sort_order");
     setItems((data ?? []) as MenuItem[]);
+  }
+  async function reloadAnalytics(vendorId: string) {
+    const from = new Date();
+    from.setDate(from.getDate() - 6);
+    const fromIso = new Date(from.getFullYear(), from.getMonth(), from.getDate()).toISOString();
+    const { data: orderRows } = await supabase
+      .from("orders")
+      .select("id,status,total_cents,commission_cents,created_at")
+      .eq("vendor_id", vendorId)
+      .gte("created_at", fromIso);
+    const rows = (orderRows ?? []) as AnalyticsRow[];
+    setAnalytics(rows);
+    const ids = rows.map((o) => o.id);
+    if (ids.length === 0) { setTopItems([]); return; }
+    const { data: itemRows } = await supabase
+      .from("order_items")
+      .select("name,quantity,unit_price_cents,discount_cents,order_id")
+      .in("order_id", ids);
+    const agg = new Map<string, TopItem>();
+    for (const r of (itemRows ?? []) as { name: string; quantity: number; unit_price_cents: number; discount_cents: number; order_id: string }[]) {
+      const cur = agg.get(r.name) ?? { name: r.name, qty: 0, revenue_cents: 0 };
+      cur.qty += r.quantity;
+      cur.revenue_cents += r.unit_price_cents * r.quantity - r.discount_cents;
+      agg.set(r.name, cur);
+    }
+    setTopItems(Array.from(agg.values()).sort((a, b) => b.revenue_cents - a.revenue_cents).slice(0, 5));
   }
 
   async function markCollected(order: OrderRow) {
@@ -165,6 +197,31 @@ function VendorDashboard() {
   const primary = vendor?.brand_primary ?? "#111111";
   const slotById = useMemo(() => new Map(slots.map((s) => [s.id, s])), [slots]);
 
+  const stats = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    let dayRev = 0, dayCount = 0;
+    let weekRev = 0, weekCount = 0;
+    let weekCommission = 0;
+    let attempted = 0, noShows = 0;
+    for (const o of analytics) {
+      const isCancelled = o.status === "cancelled";
+      if (isCancelled) continue;
+      const d = (o.created_at ?? "").slice(0, 10);
+      const isPaidLike = o.status === "paid" || o.status === "collected" || o.status === "no_show";
+      if (isPaidLike) {
+        weekRev += o.total_cents;
+        weekCommission += o.commission_cents ?? 0;
+        weekCount += 1;
+        if (d === today) { dayRev += o.total_cents; dayCount += 1; }
+        attempted += 1;
+        if (o.status === "no_show") noShows += 1;
+      }
+    }
+    const payout = weekRev - weekCommission;
+    const noShowRate = attempted > 0 ? Math.round((noShows / attempted) * 100) : 0;
+    return { dayRev, dayCount, weekRev, weekCount, weekCommission, payout, noShowRate };
+  }, [analytics]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -207,6 +264,36 @@ function VendorDashboard() {
             </span>
           </div>
         </div>
+
+        {/* Analytics */}
+        <section className="mt-4">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("analytics")} · {t("today7d")}</h2>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <StatCard label={t("revenue")} value={`${formatEUR(stats.dayRev)} / ${formatEUR(stats.weekRev)}`} />
+            <StatCard label={t("ordersCount")} value={`${stats.dayCount} / ${stats.weekCount}`} />
+            <StatCard label={t("noShowRate")} value={`${stats.noShowRate}%`} />
+            <StatCard
+              label={`${t("payout")} · ${t("commission")} ${formatEUR(stats.weekCommission)}`}
+              value={formatEUR(stats.payout)}
+              accent={primary}
+            />
+          </div>
+          {topItems.length > 0 && (
+            <div className="mt-3 rounded-2xl border border-border bg-card p-3">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("topItems")}</div>
+              <ul className="mt-1 divide-y divide-border text-sm">
+                {topItems.map((it) => (
+                  <li key={it.name} className="flex items-center justify-between py-1.5">
+                    <span className="truncate pr-2">{it.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      ×{it.qty} · <span className="font-semibold text-foreground">{formatEUR(it.revenue_cents)}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
 
         {/* Scan / lookup */}
         <section className="mt-4 rounded-2xl border border-border bg-card p-3">
@@ -379,6 +466,15 @@ function VendorDashboard() {
           </ul>
         </section>
       </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, accent }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-3">
+      <div className="truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="mt-1 text-base font-black" style={accent ? { color: accent } : undefined}>{value}</div>
     </div>
   );
 }

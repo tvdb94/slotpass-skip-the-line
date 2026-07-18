@@ -11,7 +11,7 @@ export const Route = createFileRoute("/checkout")({
   component: Checkout,
 });
 
-type Vendor = { id: string; slug: string; name: string; brand_primary: string | null; service_fee_cents: number };
+type Vendor = { id: string; slug: string; name: string; brand_primary: string | null; service_fee_cents: number; commission_pct: number };
 type Slot = {
   id: string; vendor_id: string; date: string; start_time: string; end_time: string;
   capacity: number; orders_count: number; discount_pct: number; is_open: boolean;
@@ -34,7 +34,7 @@ function Checkout() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vendors")
-        .select("id,slug,name,brand_primary,service_fee_cents")
+        .select("id,slug,name,brand_primary,service_fee_cents,commission_pct")
         .eq("id", cart.vendor_id!)
         .maybeSingle();
       if (error) throw error;
@@ -98,7 +98,7 @@ function Checkout() {
   const selectedSlot = availableSlots.find((s) => s.id === cart.slot_id) ?? null;
 
   // Compute per-item discount for the selected slot
-  const { subtotalCents, discountCents, serviceFeeCents, totalWithFeeCents } = useMemo(() => {
+  const { subtotalCents, discountCents, serviceFeeCents, totalWithFeeCents, commissionCents } = useMemo(() => {
     let subtotal = 0;
     let discount = 0;
     for (const item of cart.items) {
@@ -116,11 +116,15 @@ function Checkout() {
       }
     }
     const fee = vendor?.service_fee_cents ?? 0;
+    const commissionable = subtotal - discount; // vendor commission is on net item revenue, not the platform fee
+    const commissionPct = vendor?.commission_pct ?? 0;
+    const commissionCents = Math.round((commissionable * Number(commissionPct)) / 100);
     return {
       subtotalCents: subtotal,
       discountCents: discount,
       serviceFeeCents: fee,
       totalWithFeeCents: subtotal - discount + fee,
+      commissionCents,
     };
   }, [cart.items, discounts, selectedSlot, vendor]);
 
@@ -155,6 +159,7 @@ function Checkout() {
           discount_cents: discountCents,
           service_fee_cents: serviceFeeCents,
           total_cents: totalWithFeeCents,
+          commission_cents: commissionCents,
           customer_name: name,
           customer_email: email,
           customer_phone: phone || null,
