@@ -6,6 +6,7 @@ import { Header } from "@/components/Header";
 import { useI18n } from "@/lib/i18n";
 import { useCart } from "@/lib/cart";
 import { formatEUR, formatTime } from "@/lib/format";
+import { StarRating } from "@/components/StarRating";
 
 export const Route = createFileRoute("/$slug")({
   component: VendorPage,
@@ -35,7 +36,7 @@ export const Route = createFileRoute("/$slug")({
 type Vendor = {
   id: string; slug: string; name: string; cuisine: string; description: string | null;
   logo_url: string | null; hero_url: string | null; address: string | null;
-  rating: number | null; brand_primary: string | null; brand_secondary: string | null;
+  rating: number | null; rating_count: number | null; brand_primary: string | null; brand_secondary: string | null;
   service_fee_cents: number;
 };
 type Category = { id: string; name_nl: string; name_en: string; sort_order: number };
@@ -74,6 +75,21 @@ function VendorPage() {
       if (cats.error) throw cats.error;
       if (items.error) throw items.error;
       return { categories: cats.data as Category[], items: items.data as MenuItem[] };
+    },
+  });
+
+  const reviewsQ = useQuery({
+    enabled: !!vendor,
+    queryKey: ["vendor-reviews", vendor?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("id,rating,comment,created_at")
+        .eq("vendor_id", vendor!.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data as { id: string; rating: number; comment: string | null; created_at: string }[];
     },
   });
 
@@ -151,6 +167,35 @@ function VendorPage() {
         {vendor.description && (
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{vendor.description}</p>
         )}
+
+        {/* Reviews */}
+        <section className="mt-6">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("reviews")}</h2>
+            {vendor.rating_count ? (
+              <div className="text-xs text-muted-foreground">
+                ★ {vendor.rating?.toFixed(1)} · {t("basedOn")} {vendor.rating_count} {t("reviewsCount")}
+              </div>
+            ) : null}
+          </div>
+          {reviewsQ.data && reviewsQ.data.length > 0 ? (
+            <ul className="mt-3 space-y-2">
+              {reviewsQ.data.map((r) => (
+                <li key={r.id} className="rounded-2xl border border-border bg-card p-3">
+                  <StarRating value={r.rating} size={16} readOnly />
+                  {r.comment && <p className="mt-1 text-sm">{r.comment}</p>}
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    {new Intl.DateTimeFormat(lang === "nl" ? "nl-NL" : "en-GB", {
+                      day: "numeric", month: "short", year: "numeric",
+                    }).format(new Date(r.created_at))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-xs text-muted-foreground">{t("noReviewsYet")}</p>
+          )}
+        </section>
 
         {/* Menu */}
         <section className="mt-6">
