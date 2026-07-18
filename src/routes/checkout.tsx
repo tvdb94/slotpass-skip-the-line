@@ -391,10 +391,13 @@ function Checkout() {
                     {list.map((s) => {
                       const active = s.id === cart.slot_id;
                       const full = s.orders_count >= s.capacity;
+                      const hasPri = (s.priority_capacity ?? 0) > 0 &&
+                        (s.priority_taken ?? 0) < (s.priority_capacity ?? 0);
+                      const disabled = full && !hasPri;
                       return (
                         <button
                           key={s.id}
-                          disabled={full}
+                          disabled={disabled}
                           onClick={() => setSlot(s.id)}
                           className="rounded-full border px-3 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40"
                           style={
@@ -404,6 +407,11 @@ function Checkout() {
                           }
                         >
                           {formatTime(s.start_time)}
+                          {full && hasPri && (
+                            <span className="ml-1 opacity-80">
+                              {lang === "nl" ? "· priority" : "· priority"}
+                            </span>
+                          )}
                           {(() => {
                             const eff = Math.max(s.discount_pct ?? 0, Number(s.auto_discount_pct ?? 0));
                             return eff > 0 ? (
@@ -416,6 +424,71 @@ function Checkout() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Priority tier toggle */}
+          {selectedSlot && priorityAvail && !waitlistOffer && (
+            <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-border bg-card p-3 text-sm">
+              <span>
+                <span className="font-bold">
+                  {lang === "nl" ? "Prioriteit ophaal" : "Priority pickup"}
+                </span>
+                <span className="ml-1 text-xs text-muted-foreground">
+                  {lang === "nl" ? "vooraan in de rij" : "skip the queue"}
+                </span>
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-muted-foreground">
+                  +{formatEUR(selectedSlot.priority_upcharge_cents ?? 0)}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={priority}
+                  onChange={(e) => setPriority(e.target.checked)}
+                  className="h-4 w-4"
+                />
+              </span>
+            </label>
+          )}
+
+          {/* Waitlist offer banner */}
+          {waitlistOffer && !waitlistExpired && (
+            <div className="mt-3 rounded-2xl border border-emerald-300/60 bg-emerald-50 p-3 text-sm text-emerald-800">
+              {lang === "nl"
+                ? "Er is een plek vrijgekomen — bevestig binnen 10 minuten."
+                : "A spot opened up — confirm within 10 minutes."}
+            </div>
+          )}
+          {waitlistOffer && waitlistExpired && (
+            <div className="mt-3 rounded-2xl border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-800">
+              {lang === "nl" ? "Deze aanbieding is verlopen." : "This offer has expired."}
+            </div>
+          )}
+
+          {/* Full-slot waitlist join */}
+          {selectedSlot && selectedFull && !priorityAvail && !waitlistOffer && (
+            <div className="mt-3 rounded-2xl border border-border bg-card p-3 text-sm">
+              <div className="font-bold">
+                {lang === "nl" ? "Deze slot is vol" : "This slot is full"}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {lang === "nl"
+                  ? "Zet je op de wachtlijst; we mailen je zodra er plek vrijkomt."
+                  : "Join the waitlist — we'll email you if a spot opens up."}
+              </div>
+              <button
+                onClick={joinWaitlist}
+                disabled={waitlistBusy || !email.includes("@") || name.trim().length < 2}
+                className="mt-2 rounded-full border border-border px-3 py-1 text-xs font-bold disabled:opacity-40"
+              >
+                {waitlistBusy
+                  ? t("loading")
+                  : lang === "nl" ? "Op wachtlijst" : "Join waitlist"}
+              </button>
+              {waitlistMsg && (
+                <div className="mt-2 text-xs text-muted-foreground">{waitlistMsg}</div>
+              )}
             </div>
           )}
         </section>
@@ -454,6 +527,12 @@ function Checkout() {
             <Row label={`${t("offPeak")} ${t("off")}`} value={`− ${formatEUR(discountCents)}`} />
           )}
           <Row label={t("serviceFee")} value={formatEUR(serviceFeeCents)} />
+          {priority && priorityAvail && selectedSlot && (
+            <Row
+              label={lang === "nl" ? "Prioriteit" : "Priority"}
+              value={`+ ${formatEUR(selectedSlot.priority_upcharge_cents ?? 0)}`}
+            />
+          )}
           <div className="mt-2 flex items-center justify-between border-t border-border pt-2 font-black">
             <span>{t("total")}</span>
             <span style={{ color: primary }}>{formatEUR(totalWithFeeCents)}</span>
