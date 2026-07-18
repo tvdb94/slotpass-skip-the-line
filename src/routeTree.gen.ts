@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VendorRouteImport } from './routes/vendor'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OrderCodeRouteImport } from './routes/order.$code'
 
+const VendorRoute = VendorRouteImport.update({
+  id: '/vendor',
+  path: '/vendor',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/$slug': typeof SlugRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
+  '/vendor': typeof VendorRoute
   '/order/$code': typeof OrderCodeRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/$slug': typeof SlugRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
+  '/vendor': typeof VendorRoute
   '/order/$code': typeof OrderCodeRoute
 }
 export interface FileRoutesById {
@@ -61,14 +69,28 @@ export interface FileRoutesById {
   '/$slug': typeof SlugRoute
   '/checkout': typeof CheckoutRoute
   '/login': typeof LoginRoute
+  '/vendor': typeof VendorRoute
   '/order/$code': typeof OrderCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$slug' | '/checkout' | '/login' | '/order/$code'
+  fullPaths:
+    | '/'
+    | '/$slug'
+    | '/checkout'
+    | '/login'
+    | '/vendor'
+    | '/order/$code'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$slug' | '/checkout' | '/login' | '/order/$code'
-  id: '__root__' | '/' | '/$slug' | '/checkout' | '/login' | '/order/$code'
+  to: '/' | '/$slug' | '/checkout' | '/login' | '/vendor' | '/order/$code'
+  id:
+    | '__root__'
+    | '/'
+    | '/$slug'
+    | '/checkout'
+    | '/login'
+    | '/vendor'
+    | '/order/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,11 +98,19 @@ export interface RootRouteChildren {
   SlugRoute: typeof SlugRoute
   CheckoutRoute: typeof CheckoutRoute
   LoginRoute: typeof LoginRoute
+  VendorRoute: typeof VendorRoute
   OrderCodeRoute: typeof OrderCodeRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/vendor': {
+      id: '/vendor'
+      path: '/vendor'
+      fullPath: '/vendor'
+      preLoaderRoute: typeof VendorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -124,6 +154,7 @@ const rootRouteChildren: RootRouteChildren = {
   SlugRoute: SlugRoute,
   CheckoutRoute: CheckoutRoute,
   LoginRoute: LoginRoute,
+  VendorRoute: VendorRoute,
   OrderCodeRoute: OrderCodeRoute,
 }
 export const routeTree = rootRouteImport

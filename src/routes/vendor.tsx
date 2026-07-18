@@ -114,11 +114,13 @@ function VendorDashboard() {
   async function lookupAndCollect() {
     const q = scan.trim();
     if (!q || !vendor) return;
-    // Try QR token first, then order_code
-    const { data: byToken } = await supabase.from("orders").select("*").eq("qr_token", q).maybeSingle();
-    const { data: byCode } = byToken ? { data: byToken } : await supabase.from("orders").select("*").eq("order_code", q.toUpperCase()).maybeSingle();
-    const found = (byToken ?? byCode) as OrderRow | null;
-    if (!found || (found as { vendor_id: string }).vendor_id !== vendor.id) {
+    const cols = "id,order_code,status,total_cents,customer_name,qr_token,slot_id,paid_at,collected_at,vendor_id";
+    const { data: byToken } = await supabase.from("orders").select(cols).eq("qr_token", q).maybeSingle();
+    const { data: byCode } = byToken
+      ? { data: byToken }
+      : await supabase.from("orders").select(cols).eq("order_code", q.toUpperCase()).maybeSingle();
+    const found = (byToken ?? byCode) as (OrderRow & { vendor_id: string }) | null;
+    if (!found || found.vendor_id !== vendor.id) {
       setFlash(t("orderNotFound"));
       setTimeout(() => setFlash(null), 1800);
       return;
