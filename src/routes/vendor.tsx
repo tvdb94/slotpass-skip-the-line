@@ -25,7 +25,7 @@ type Vendor = {
 };
 type Slot = {
   id: string; date: string; start_time: string; end_time: string;
-  capacity: number; orders_count: number; discount_pct: number; is_open: boolean;
+  capacity: number; orders_count: number; discount_pct: number; auto_discount_pct: number; is_open: boolean;
 };
 type OrderRow = {
   id: string; order_code: string; status: string; total_cents: number;
@@ -34,6 +34,7 @@ type OrderRow = {
 };
 type MenuItem = {
   id: string; name_nl: string; name_en: string; price_cents: number; is_available: boolean | null;
+  daily_stock: number | null; stock_remaining: number | null;
 };
 type AnalyticsRow = {
   status: string; total_cents: number; commission_cents: number; created_at: string; id: string;
@@ -172,7 +173,7 @@ function VendorDashboard() {
   async function reloadMenu(vendorId: string) {
     const { data } = await supabase
       .from("menu_items")
-      .select("id,name_nl,name_en,price_cents,is_available")
+      .select("id,name_nl,name_en,price_cents,is_available,daily_stock,stock_remaining")
       .eq("vendor_id", vendorId)
       .order("sort_order");
     setItems((data ?? []) as MenuItem[]);
@@ -261,6 +262,22 @@ function VendorDashboard() {
   async function updatePrice(m: MenuItem, priceCents: number) {
     if (Number.isNaN(priceCents) || priceCents < 0) return;
     await supabase.from("menu_items").update({ price_cents: priceCents }).eq("id", m.id);
+    if (vendor) reloadMenu(vendor.id);
+  }
+  async function updateDailyStock(m: MenuItem, raw: string) {
+    const trimmed = raw.trim();
+    if (trimmed === "") {
+      await supabase.from("menu_items")
+        .update({ daily_stock: null, stock_remaining: null, stock_date: null })
+        .eq("id", m.id);
+    } else {
+      const n = Math.max(0, Math.floor(Number(trimmed)));
+      if (Number.isNaN(n)) return;
+      const today = new Date().toISOString().slice(0, 10);
+      await supabase.from("menu_items")
+        .update({ daily_stock: n, stock_remaining: n, stock_date: today })
+        .eq("id", m.id);
+    }
     if (vendor) reloadMenu(vendor.id);
   }
 
@@ -630,6 +647,11 @@ function VendorDashboard() {
                       −{s.discount_pct}%
                     </span>
                   )}
+                  {Number(s.auto_discount_pct ?? 0) > 0 && (
+                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700">
+                      auto −{Math.round(Number(s.auto_discount_pct))}%
+                    </span>
+                  )}
                   <button
                     onClick={() => toggleSlotOpen(s)}
                     className={`ml-auto rounded-full px-3 py-1 text-[11px] font-bold ${
@@ -643,6 +665,9 @@ function VendorDashboard() {
             </ul>
           )}
         </section>
+
+        {/* Dynamic Pricing Rules */}
+        {vendor && <PricingRulesCard vendorId={vendor.id} />}
 
         {/* Menu */}
         <section className="mt-6">
@@ -663,6 +688,20 @@ function VendorDashboard() {
                     className="w-16 rounded border border-border bg-background px-1 py-0.5 text-xs"
                     min={0}
                   />
+                </div>
+                <div className="flex items-center gap-1 text-xs" title="Daily stock (blank = unlimited)">
+                  <span className="text-muted-foreground">📦</span>
+                  <input
+                    type="number"
+                    placeholder="∞"
+                    defaultValue={m.daily_stock ?? ""}
+                    onBlur={(e) => updateDailyStock(m, e.target.value)}
+                    className="w-14 rounded border border-border bg-background px-1 py-0.5 text-xs"
+                    min={0}
+                  />
+                  {m.daily_stock != null && (
+                    <span className="text-[10px] text-muted-foreground">/{m.stock_remaining ?? 0}</span>
+                  )}
                 </div>
                 <button
                   onClick={() => toggleItemAvail(m)}
@@ -725,4 +764,166 @@ function payoutLabel(status: string, t: (k: never) => string): string {
     case "canceled": return tt("canceledPayout");
     default: return status;
   }
+}
+
+type PricingRule = {
+  id: string;
+  vendor_id: string;
+  trigger_minutes: number;
+  max_fill_pct: number;
+  discount_pct: number;
+  priority: number;
+  active: boolean;
+};
+
+function PricingRulesCard({ vendorId }: { vendorId: string }) {
+  const { t } = useI18n();
+  const tt = t as unknown as (k: string) => string;
+  const [rules, setRules] = useState<PricingRule[]>([]);
+  const [enabled, setEnabled] = useState(false);
+  const [triggerMin, setTriggerMin] = useState(120);
+  const [maxFill, setMaxFill] = useState(30);
+  const [discount, setDiscount] = useState(15);
+  const [busy, setBusy] = useState(false);
+
+  async function reload() {
+    const [{ data: rs }, { data: v }] = await Promise.all([
+      supabase.from("pricing_rules").select("*").eq("vendor_id", vendorId).order("priority", { ascending: false }),
+      supabase.from("vendors").select("dynamic_pricing_enabled").eq("id", vendorId).maybeSingle(),
+    ]);
+    setRules((rs ?? []) as PricingRule[]);
+    setEnabled(Boolean((v as { dynamic_pricing_enabled?: boolean } | null)?.dynamic_pricing_enabled));
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorId]);
+
+  async function toggleEnabled() {
+    setBusy(true);
+    const next = !enabled;
+    await supabase.from("vendors").update({ dynamic_pricing_enabled: next }).eq("id", vendorId);
+    setEnabled(next);
+    setBusy(false);
+  }
+
+  async function addRule() {
+    if (discount < 1 || discount > 90) return;
+    setBusy(true);
+    await supabase.from("pricing_rules").insert({
+      vendor_id: vendorId,
+      trigger_minutes: triggerMin,
+      max_fill_pct: maxFill,
+      discount_pct: discount,
+      priority: rules.length,
+      active: true,
+    });
+    await reload();
+    setBusy(false);
+  }
+
+  async function toggleActive(r: PricingRule) {
+    await supabase.from("pricing_rules").update({ active: !r.active }).eq("id", r.id);
+    await reload();
+  }
+
+  async function removeRule(r: PricingRule) {
+    await supabase.from("pricing_rules").delete().eq("id", r.id);
+    await reload();
+  }
+
+  return (
+    <section className="mt-6 rounded-2xl border border-border bg-card p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            {tt("dynamicPricing")}
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">{tt("dynamicPricingHint")}</p>
+        </div>
+        <button
+          onClick={toggleEnabled}
+          disabled={busy}
+          className={`rounded-full px-3 py-1 text-[11px] font-bold ${
+            enabled ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {enabled ? tt("pricingOn") : tt("pricingOff")}
+        </button>
+      </div>
+
+      {/* Add rule */}
+      <div className="mt-3 grid grid-cols-4 gap-2 text-xs">
+        <label className="flex flex-col">
+          <span className="mb-0.5 font-semibold text-muted-foreground">{tt("ifWithin")}</span>
+          <select
+            value={triggerMin}
+            onChange={(e) => setTriggerMin(Number(e.target.value))}
+            className="rounded border border-border bg-background px-1 py-1"
+          >
+            <option value={60}>60 min</option>
+            <option value={120}>120 min</option>
+            <option value={180}>180 min</option>
+            <option value={240}>240 min</option>
+          </select>
+        </label>
+        <label className="flex flex-col">
+          <span className="mb-0.5 font-semibold text-muted-foreground">{tt("fillBelow")}</span>
+          <input
+            type="number"
+            value={maxFill}
+            onChange={(e) => setMaxFill(Math.max(1, Math.min(100, Number(e.target.value))))}
+            className="rounded border border-border bg-background px-1 py-1"
+            min={1}
+            max={100}
+          />
+        </label>
+        <label className="flex flex-col">
+          <span className="mb-0.5 font-semibold text-muted-foreground">{tt("discountPct")}</span>
+          <input
+            type="number"
+            value={discount}
+            onChange={(e) => setDiscount(Math.max(1, Math.min(90, Number(e.target.value))))}
+            className="rounded border border-border bg-background px-1 py-1"
+            min={1}
+            max={90}
+          />
+        </label>
+        <button
+          onClick={addRule}
+          disabled={busy}
+          className="self-end rounded-full bg-foreground px-3 py-1.5 text-[11px] font-bold text-background"
+        >
+          {tt("addRule")}
+        </button>
+      </div>
+
+      {/* Rules list */}
+      <ul className="mt-3 space-y-1">
+        {rules.length === 0 ? (
+          <li className="text-xs text-muted-foreground">{tt("noRules")}</li>
+        ) : (
+          rules.map((r) => (
+            <li key={r.id} className="flex items-center gap-2 rounded-xl border border-border bg-background p-2 text-xs">
+              <span className="flex-1">
+                {tt("ifWithin")} {r.trigger_minutes} {tt("minutesShort")} · {tt("fillBelow")} {r.max_fill_pct}% → −{r.discount_pct}%
+              </span>
+              <button
+                onClick={() => toggleActive(r)}
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  r.active ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {r.active ? tt("pricingOn") : tt("pricingOff")}
+              </button>
+              <button onClick={() => removeRule(r)} className="text-muted-foreground hover:text-red-600" aria-label="delete">
+                ×
+              </button>
+            </li>
+          ))
+        )}
+      </ul>
+    </section>
+  );
 }

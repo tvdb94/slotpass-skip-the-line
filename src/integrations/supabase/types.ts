@@ -88,6 +88,7 @@ export type Database = {
       menu_items: {
         Row: {
           category_id: string | null
+          daily_stock: number | null
           description_en: string | null
           description_nl: string | null
           id: string
@@ -97,10 +98,13 @@ export type Database = {
           name_nl: string
           price_cents: number
           sort_order: number | null
+          stock_date: string | null
+          stock_remaining: number | null
           vendor_id: string
         }
         Insert: {
           category_id?: string | null
+          daily_stock?: number | null
           description_en?: string | null
           description_nl?: string | null
           id?: string
@@ -110,10 +114,13 @@ export type Database = {
           name_nl: string
           price_cents: number
           sort_order?: number | null
+          stock_date?: string | null
+          stock_remaining?: number | null
           vendor_id: string
         }
         Update: {
           category_id?: string | null
+          daily_stock?: number | null
           description_en?: string | null
           description_nl?: string | null
           id?: string
@@ -123,6 +130,8 @@ export type Database = {
           name_nl?: string
           price_cents?: number
           sort_order?: number | null
+          stock_date?: string | null
+          stock_remaining?: number | null
           vendor_id?: string
         }
         Relationships: [
@@ -283,6 +292,50 @@ export type Database = {
           },
         ]
       }
+      pricing_rules: {
+        Row: {
+          active: boolean
+          created_at: string
+          discount_pct: number
+          id: string
+          max_fill_pct: number
+          priority: number
+          trigger_minutes: number
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          discount_pct: number
+          id?: string
+          max_fill_pct: number
+          priority?: number
+          trigger_minutes: number
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          discount_pct?: number
+          id?: string
+          max_fill_pct?: number
+          priority?: number
+          trigger_minutes?: number
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_rules_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reviews: {
         Row: {
           comment: string | null
@@ -330,6 +383,7 @@ export type Database = {
       }
       slots: {
         Row: {
+          auto_discount_pct: number
           capacity: number
           date: string
           discount_pct: number
@@ -341,6 +395,7 @@ export type Database = {
           vendor_id: string
         }
         Insert: {
+          auto_discount_pct?: number
           capacity?: number
           date: string
           discount_pct?: number
@@ -352,6 +407,7 @@ export type Database = {
           vendor_id: string
         }
         Update: {
+          auto_discount_pct?: number
           capacity?: number
           date?: string
           discount_pct?: number
@@ -500,6 +556,7 @@ export type Database = {
           cuisine: string
           currency: string | null
           description: string | null
+          dynamic_pricing_enabled: boolean
           featured_headline_en: string | null
           featured_headline_nl: string | null
           grace_minutes: number
@@ -531,6 +588,7 @@ export type Database = {
           cuisine: string
           currency?: string | null
           description?: string | null
+          dynamic_pricing_enabled?: boolean
           featured_headline_en?: string | null
           featured_headline_nl?: string | null
           grace_minutes?: number
@@ -562,6 +620,7 @@ export type Database = {
           cuisine?: string
           currency?: string | null
           description?: string | null
+          dynamic_pricing_enabled?: boolean
           featured_headline_en?: string | null
           featured_headline_nl?: string | null
           grace_minutes?: number
@@ -600,6 +659,10 @@ export type Database = {
           _slug: string
         }
         Returns: string
+      }
+      decrement_stock: {
+        Args: { _item_id: string; _qty: number }
+        Returns: number
       }
       get_order_by_code: {
         Args: { _code: string }
@@ -660,6 +723,7 @@ export type Database = {
         Args: { _application_id: string; _notes: string }
         Returns: undefined
       }
+      reset_daily_stock: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "vendor" | "customer"

@@ -20,7 +20,7 @@ type Vendor = {
 };
 type Slot = {
   id: string; vendor_id: string; date: string; start_time: string; end_time: string;
-  capacity: number; orders_count: number; discount_pct: number; is_open: boolean;
+  capacity: number; orders_count: number; discount_pct: number; auto_discount_pct: number; is_open: boolean;
 };
 type ItemDiscount = { menu_item_id: string; slot_id: string; discount_pct: number; discount_cents: number };
 
@@ -118,8 +118,9 @@ function Checkout() {
       if (d) {
         if (d.discount_pct > 0) discount += Math.round((lineTotal * d.discount_pct) / 100);
         else if (d.discount_cents > 0) discount += d.discount_cents * item.quantity;
-      } else if (selectedSlot.discount_pct > 0) {
-        discount += Math.round((lineTotal * selectedSlot.discount_pct) / 100);
+      } else {
+        const eff = Math.max(selectedSlot.discount_pct ?? 0, Number(selectedSlot.auto_discount_pct ?? 0));
+        if (eff > 0) discount += Math.round((lineTotal * eff) / 100);
       }
     }
     const fee = vendor?.service_fee_cents ?? 0;
@@ -326,9 +327,12 @@ function Checkout() {
                           }
                         >
                           {formatTime(s.start_time)}
-                          {s.discount_pct > 0 && (
-                            <span className="ml-1 opacity-80">−{s.discount_pct}%</span>
-                          )}
+                          {(() => {
+                            const eff = Math.max(s.discount_pct ?? 0, Number(s.auto_discount_pct ?? 0));
+                            return eff > 0 ? (
+                              <span className="ml-1 opacity-80">−{Math.round(eff)}%</span>
+                            ) : null;
+                          })()}
                         </button>
                       );
                     })}
