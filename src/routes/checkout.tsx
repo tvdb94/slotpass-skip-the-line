@@ -327,9 +327,12 @@ function Checkout() {
                           }
                         >
                           {formatTime(s.start_time)}
-                          {s.discount_pct > 0 && (
-                            <span className="ml-1 opacity-80">−{s.discount_pct}%</span>
-                          )}
+                          {(() => {
+                            const eff = Math.max(s.discount_pct ?? 0, Number(s.auto_discount_pct ?? 0));
+                            return eff > 0 ? (
+                              <span className="ml-1 opacity-80">−{Math.round(eff)}%</span>
+                            ) : null;
+                          })()}
                         </button>
                       );
                     })}
