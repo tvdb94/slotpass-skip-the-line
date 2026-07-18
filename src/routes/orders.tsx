@@ -33,7 +33,7 @@ type OrderItemRow = {
 };
 type VendorRow = { id: string; slug: string; name: string; brand_primary: string | null; logo_url: string | null };
 type SlotRow = { id: string; date: string; start_time: string; end_time: string };
-type MenuItemRow = { id: string; vendor_id: string; is_available: boolean; price_cents: number; image_url: string | null; name_nl: string; name_en: string };
+type MenuItemRow = { id: string; vendor_id: string; is_available: boolean | null; price_cents: number; image_url: string | null; name_nl: string; name_en: string };
 
 function OrdersPage() {
   const { t, lang } = useI18n();
