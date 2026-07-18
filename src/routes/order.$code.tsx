@@ -50,7 +50,21 @@ function OrderPage() {
         slot: slot.data as Slot | null,
       };
     },
+    // While the order is pending payment confirmation from Stripe, poll every 2s.
+    refetchInterval: (query) => {
+      const data = query.state.data as { order?: { status?: string } } | undefined;
+      return data?.order?.status === "pending" ? 2000 : false;
+    },
   });
+
+  const isPending = q.data?.order.status === "pending";
+
+  // Also refetch on tab focus after a Stripe redirect.
+  useEffect(() => {
+    const onFocus = () => q.refetch();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [q]);
 
   if (q.isLoading || !q.data) {
     return (
@@ -68,6 +82,12 @@ function OrderPage() {
     <div className="min-h-screen bg-background pb-10">
       <Header />
       <div className="mx-auto max-w-3xl px-4 pt-4">
+        {isPending && (
+          <div className="mb-3 rounded-2xl border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-800">
+            <div className="font-bold">{t("orderPending")}</div>
+            <div className="text-xs">{t("orderPendingHint")}</div>
+          </div>
+        )}
         <div className="rounded-2xl p-5 text-white shadow-lg" style={{ background: primary }}>
           <div className="text-[11px] font-bold uppercase tracking-widest opacity-80">
             {t("orderConfirmed")}

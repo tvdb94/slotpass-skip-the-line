@@ -4,12 +4,25 @@ import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
 import { useI18n } from "@/lib/i18n";
 import { formatEUR, formatTime } from "@/lib/format";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  createOnboardingLink,
+  createLoginLink,
+  refreshConnectStatus,
+  getVendorEarnings,
+} from "@/lib/connect.functions";
 
 export const Route = createFileRoute("/vendor")({
   component: VendorDashboard,
 });
 
-type Vendor = { id: string; slug: string; name: string; brand_primary: string | null };
+type Vendor = {
+  id: string; slug: string; name: string; brand_primary: string | null;
+  stripe_account_id: string | null;
+  stripe_charges_enabled: boolean;
+  stripe_payouts_enabled: boolean;
+  stripe_details_submitted: boolean;
+};
 type Slot = {
   id: string; date: string; start_time: string; end_time: string;
   capacity: number; orders_count: number; discount_pct: number; is_open: boolean;
@@ -26,6 +39,14 @@ type AnalyticsRow = {
   status: string; total_cents: number; commission_cents: number; created_at: string; id: string;
 };
 type TopItem = { name: string; qty: number; revenue_cents: number };
+type Payout = { id: string; amount_cents: number; currency: string; status: string; arrival_date: number; created: number };
+type Earnings = {
+  summary: { orderCount: number; grossCents: number; platformFeeCents: number;
+    commissionCents: number; totalFeesCents: number; netToVendorCents: number };
+  payouts: Payout[];
+  hasConnectedAccount: boolean;
+};
+type RangePreset = "7d" | "30d" | "month" | "custom";
 
 function VendorDashboard() {
   const { t, lang } = useI18n();
@@ -40,6 +61,19 @@ function VendorDashboard() {
   const [analytics, setAnalytics] = useState<AnalyticsRow[]>([]);
   const [topItems, setTopItems] = useState<TopItem[]>([]);
 
+  // Stripe Connect UI state
+  const [connectBusy, setConnectBusy] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [earnings, setEarnings] = useState<Earnings | null>(null);
+  const [rangePreset, setRangePreset] = useState<RangePreset>("7d");
+  const [customFrom, setCustomFrom] = useState<string>("");
+  const [customTo, setCustomTo] = useState<string>("");
+
+  const onboardingFn = useServerFn(createOnboardingLink);
+  const loginFn = useServerFn(createLoginLink);
+  const refreshFn = useServerFn(refreshConnectStatus);
+  const earningsFn = useServerFn(getVendorEarnings);
+
   // Bootstrap: resolve current user -> staff -> vendor -> data
   useEffect(() => {
     let cancel = false;
@@ -49,7 +83,7 @@ function VendorDashboard() {
       if (!user) { if (!cancel) { setLoading(false); setNotLinked(true); } return; }
       const { data: staff } = await supabase
         .from("staff")
-        .select("vendor_id, vendors(id, slug, name, brand_primary)")
+        .select("vendor_id, vendors(id, slug, name, brand_primary, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted)")
         .eq("auth_user_id", user.id)
         .maybeSingle();
       if (cancel) return;
@@ -58,10 +92,46 @@ function VendorDashboard() {
       setVendor(v);
       await Promise.all([reloadSlots(v.id), reloadOrders(v.id), reloadMenu(v.id), reloadAnalytics(v.id)]);
       if (!cancel) setLoading(false);
+
+      // If the user just came back from Stripe onboarding, pull fresh status.
+      const url = new URL(window.location.href);
+      const connect = url.searchParams.get("connect");
+      if (connect === "return") {
+        try {
+          const res = await refreshFn({ data: { vendorId: v.id } });
+          setVendor({
+            ...v,
+            stripe_charges_enabled: !!res.chargesEnabled,
+            stripe_payouts_enabled: !!res.payoutsEnabled,
+            stripe_details_submitted: !!res.detailsSubmitted,
+          });
+        } catch { /* ignore */ }
+        url.searchParams.delete("connect");
+        window.history.replaceState({}, "", url.toString());
+      } else if (connect === "refresh") {
+        // Onboarding link expired — regenerate a new one immediately.
+        try {
+          const { url: newUrl } = await onboardingFn({ data: { vendorId: v.id } });
+          window.location.href = newUrl;
+          return;
+        } catch { /* ignore */ }
+      }
     })();
     return () => { cancel = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Refetch earnings whenever range or vendor changes.
+  useEffect(() => {
+    if (!vendor) return;
+    const [from, to] = resolveRange(rangePreset, customFrom, customTo);
+    if (!from || !to) return;
+    let cancel = false;
+    earningsFn({ data: { vendorId: vendor.id, from, to } })
+      .then((e) => { if (!cancel) setEarnings(e as Earnings); })
+      .catch(() => { if (!cancel) setEarnings(null); });
+    return () => { cancel = true; };
+  }, [vendor, rangePreset, customFrom, customTo, earningsFn]);
 
   // Realtime: incoming orders for this vendor
   useEffect(() => {
@@ -197,6 +267,30 @@ function VendorDashboard() {
   const primary = vendor?.brand_primary ?? "#111111";
   const slotById = useMemo(() => new Map(slots.map((s) => [s.id, s])), [slots]);
 
+  async function connectStripe() {
+    if (!vendor) return;
+    setConnectBusy(true); setConnectError(null);
+    try {
+      const { url } = await onboardingFn({ data: { vendorId: vendor.id } });
+      window.location.href = url;
+    } catch (e) {
+      setConnectError(e instanceof Error ? e.message : String(e));
+      setConnectBusy(false);
+    }
+  }
+  async function openStripeDashboard() {
+    if (!vendor) return;
+    setConnectBusy(true); setConnectError(null);
+    try {
+      const { url } = await loginFn({ data: { vendorId: vendor.id } });
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      setConnectError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setConnectBusy(false);
+    }
+  }
+
   const stats = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     let dayRev = 0, dayCount = 0;
@@ -264,6 +358,123 @@ function VendorDashboard() {
             </span>
           </div>
         </div>
+
+        {/* Stripe Connect status */}
+        {vendor && (
+          <section className="mt-4 rounded-2xl border border-border bg-card p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("payouts")}</div>
+                <div className="mt-1 text-sm font-semibold">
+                  {vendor.stripe_charges_enabled
+                    ? t("stripeConnected")
+                    : vendor.stripe_account_id
+                      ? t("stripeReview")
+                      : "Stripe"}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">{t("stripeConnectHint")}</p>
+              </div>
+              <div className="flex shrink-0 flex-col gap-1">
+                {!vendor.stripe_account_id && (
+                  <button
+                    onClick={connectStripe}
+                    disabled={connectBusy}
+                    className="rounded-full px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                    style={{ background: primary }}
+                  >
+                    {t("connectStripe")}
+                  </button>
+                )}
+                {vendor.stripe_account_id && !vendor.stripe_charges_enabled && (
+                  <button
+                    onClick={connectStripe}
+                    disabled={connectBusy}
+                    className="rounded-full px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                    style={{ background: primary }}
+                  >
+                    {t("continueOnboarding")}
+                  </button>
+                )}
+                {vendor.stripe_account_id && (
+                  <button
+                    onClick={openStripeDashboard}
+                    disabled={connectBusy}
+                    className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                  >
+                    {t("openStripeDashboard")}
+                  </button>
+                )}
+              </div>
+            </div>
+            {connectError && <div className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-700">{connectError}</div>}
+          </section>
+        )}
+
+        {/* Earnings */}
+        <section className="mt-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("earnings")}</h2>
+            <div className="flex gap-1">
+              {(["7d", "30d", "month", "custom"] as RangePreset[]).map((k) => (
+                <button
+                  key={k}
+                  onClick={() => setRangePreset(k)}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    rangePreset === k ? "text-white" : "border border-border bg-card text-muted-foreground"
+                  }`}
+                  style={rangePreset === k ? { background: primary } : undefined}
+                >
+                  {k === "7d" ? t("last7Days") : k === "30d" ? t("last30Days") : k === "month" ? t("thisMonth") : t("custom")}
+                </button>
+              ))}
+            </div>
+          </div>
+          {rangePreset === "custom" && (
+            <div className="mt-2 flex items-center gap-2 text-xs">
+              <label className="flex items-center gap-1">
+                <span className="text-muted-foreground">{t("from")}</span>
+                <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
+                  className="rounded border border-border bg-background px-2 py-1" />
+              </label>
+              <label className="flex items-center gap-1">
+                <span className="text-muted-foreground">{t("to")}</span>
+                <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
+                  className="rounded border border-border bg-background px-2 py-1" />
+              </label>
+            </div>
+          )}
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <StatCard label={t("grossSales")} value={formatEUR(earnings?.summary.grossCents ?? 0)} />
+            <StatCard label={t("commission")} value={formatEUR(earnings?.summary.commissionCents ?? 0)} />
+            <StatCard label={t("slotpassFees")} value={formatEUR(earnings?.summary.totalFeesCents ?? 0)} />
+            <StatCard label={t("netToVendor")} value={formatEUR(earnings?.summary.netToVendorCents ?? 0)} accent={primary} />
+          </div>
+
+          <div className="mt-3 rounded-2xl border border-border bg-card p-3">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("payoutHistory")}</div>
+            {!earnings?.hasConnectedAccount ? (
+              <div className="mt-2 text-xs text-muted-foreground">{t("stripeConnectHint")}</div>
+            ) : earnings.payouts.length === 0 ? (
+              <div className="mt-2 text-xs text-muted-foreground">{t("noPayouts")}</div>
+            ) : (
+              <ul className="mt-1 divide-y divide-border text-sm">
+                {earnings.payouts.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between gap-3 py-1.5">
+                    <div className="min-w-0">
+                      <div className="font-semibold">{formatEUR(p.amount_cents)}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {new Date(p.arrival_date * 1000).toLocaleDateString(lang === "nl" ? "nl-NL" : "en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                      </div>
+                    </div>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${payoutBadge(p.status)}`}>
+                      {payoutLabel(p.status, t)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
 
         {/* Analytics */}
         <section className="mt-4">
@@ -477,4 +688,41 @@ function StatCard({ label, value, accent }: { label: string; value: string; acce
       <div className="mt-1 text-base font-black" style={accent ? { color: accent } : undefined}>{value}</div>
     </div>
   );
+}
+
+function resolveRange(preset: RangePreset, customFrom: string, customTo: string): [string, string] {
+  if (preset === "custom") {
+    return [customFrom, customTo];
+  }
+  const today = new Date();
+  const to = today.toISOString().slice(0, 10);
+  const from = new Date(today);
+  if (preset === "7d") from.setDate(today.getDate() - 6);
+  else if (preset === "30d") from.setDate(today.getDate() - 29);
+  else if (preset === "month") from.setDate(1);
+  return [from.toISOString().slice(0, 10), to];
+}
+
+function payoutBadge(status: string): string {
+  switch (status) {
+    case "paid": return "bg-emerald-100 text-emerald-700";
+    case "in_transit": return "bg-sky-100 text-sky-700";
+    case "pending": return "bg-amber-100 text-amber-700";
+    case "failed": return "bg-red-100 text-red-700";
+    case "canceled": return "bg-muted text-muted-foreground";
+    default: return "bg-muted text-muted-foreground";
+  }
+}
+
+function payoutLabel(status: string, t: (k: never) => string): string {
+  // `t` is the tagged translator; cast keys because Key is a strict union.
+  const tt = t as unknown as (k: string) => string;
+  switch (status) {
+    case "paid": return tt("paidOut");
+    case "in_transit": return tt("inTransitPayout");
+    case "pending": return tt("pendingPayout");
+    case "failed": return tt("failedPayout");
+    case "canceled": return tt("canceledPayout");
+    default: return status;
+  }
 }

@@ -6,12 +6,18 @@ import { Header } from "@/components/Header";
 import { useI18n } from "@/lib/i18n";
 import { useCart } from "@/lib/cart";
 import { formatEUR, formatTime } from "@/lib/format";
+import { useServerFn } from "@tanstack/react-start";
+import { createCheckoutSession } from "@/lib/checkout.functions";
 
 export const Route = createFileRoute("/checkout")({
   component: Checkout,
 });
 
-type Vendor = { id: string; slug: string; name: string; brand_primary: string | null; service_fee_cents: number; commission_pct: number };
+type Vendor = {
+  id: string; slug: string; name: string; brand_primary: string | null;
+  service_fee_cents: number; commission_pct: number;
+  stripe_account_id: string | null; stripe_charges_enabled: boolean;
+};
 type Slot = {
   id: string; vendor_id: string; date: string; start_time: string; end_time: string;
   capacity: number; orders_count: number; discount_pct: number; is_open: boolean;
@@ -27,6 +33,7 @@ function Checkout() {
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const createSession = useServerFn(createCheckoutSession);
 
   const vendorQ = useQuery({
     enabled: !!cart.vendor_id,
@@ -34,7 +41,7 @@ function Checkout() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vendors")
-        .select("id,slug,name,brand_primary,service_fee_cents,commission_pct")
+        .select("id,slug,name,brand_primary,service_fee_cents,commission_pct,stripe_account_id,stripe_charges_enabled")
         .eq("id", cart.vendor_id!)
         .maybeSingle();
       if (error) throw error;
@@ -131,6 +138,11 @@ function Checkout() {
   const canPay =
     !!vendor && !!selectedSlot && cart.items.length > 0 && name.trim().length > 1 && email.includes("@");
 
+  // Vendors that finished Stripe Connect onboarding accept real payments;
+  // demo vendors seeded without a connected account still run the simulate flow.
+  const stripeMode = !!vendor?.stripe_account_id && !!vendor?.stripe_charges_enabled;
+  const stripePending = !!vendor?.stripe_account_id && !vendor.stripe_charges_enabled;
+
   const groupedSlots = useMemo(() => {
     const map = new Map<string, Slot[]>();
     for (const s of availableSlots) {
@@ -160,6 +172,8 @@ function Checkout() {
           service_fee_cents: serviceFeeCents,
           total_cents: totalWithFeeCents,
           commission_cents: commissionCents,
+          platform_fee_cents: serviceFeeCents,
+          application_fee_cents: serviceFeeCents + commissionCents,
           customer_name: name,
           customer_email: email,
           customer_phone: phone || null,
@@ -205,6 +219,31 @@ function Checkout() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function payWithStripe() {
+    if (!canPay || !vendor || !selectedSlot) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await createSession({
+        data: {
+          vendorId: vendor.id,
+          slotId: selectedSlot.id,
+          items: cart.items.map((i) => ({ menu_item_id: i.menu_item_id, quantity: i.quantity })),
+          customerName: name,
+          customerEmail: email,
+          customerPhone: phone || null,
+          lang,
+        },
+      });
+      if (!res.url) throw new Error("Stripe returned no checkout URL");
+      clear();
+      window.location.href = res.url;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
       setSubmitting(false);
     }
   }
@@ -342,19 +381,43 @@ function Checkout() {
 
         {error && <div className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
-        <button
-          onClick={simulatePayment}
-          disabled={!canPay || submitting}
-          className="mt-4 w-full rounded-2xl px-4 py-3 text-sm font-black text-white shadow-lg transition disabled:opacity-50"
-          style={{ background: primary }}
-        >
-          {submitting ? t("loading") : `${t("simulatePayment")} · ${formatEUR(totalWithFeeCents)}`}
-        </button>
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">
-          {lang === "nl"
-            ? "Demo-modus. Voeg Stripe-sleutels toe voor echte betalingen."
-            : "Demo mode. Add Stripe keys for real payments."}
-        </p>
+        {stripePending ? (
+          <div className="mt-4 rounded-2xl border border-amber-300/60 bg-amber-50 p-3 text-center text-sm text-amber-800">
+            {t("stripeNotAcceptingYet")}
+          </div>
+        ) : stripeMode ? (
+          <>
+            <button
+              onClick={payWithStripe}
+              disabled={!canPay || submitting}
+              className="mt-4 w-full rounded-2xl px-4 py-3 text-sm font-black text-white shadow-lg transition disabled:opacity-50"
+              style={{ background: primary }}
+            >
+              {submitting ? t("loading") : `${t("payWithStripe")} · ${formatEUR(totalWithFeeCents)}`}
+            </button>
+            <p className="mt-2 text-center text-[11px] text-muted-foreground">
+              {lang === "nl"
+                ? "Betaal met iDEAL, creditcard, Apple Pay of Google Pay."
+                : "Pay with iDEAL, card, Apple Pay or Google Pay."}
+            </p>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={simulatePayment}
+              disabled={!canPay || submitting}
+              className="mt-4 w-full rounded-2xl px-4 py-3 text-sm font-black text-white shadow-lg transition disabled:opacity-50"
+              style={{ background: primary }}
+            >
+              {submitting ? t("loading") : `${t("simulatePayment")} · ${formatEUR(totalWithFeeCents)}`}
+            </button>
+            <p className="mt-2 text-center text-[11px] text-muted-foreground">
+              {lang === "nl"
+                ? "Demo-modus. Deze verkoper heeft Stripe nog niet gekoppeld."
+                : "Demo mode. This vendor hasn't connected Stripe yet."}
+            </p>
+          </>
+        )}
 
         {/* Reference totalCents for cart-store parity */}
         <div className="sr-only">{formatEUR(totalCents)}</div>

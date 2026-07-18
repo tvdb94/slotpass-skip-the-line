@@ -189,6 +189,7 @@ export type Database = {
       }
       orders: {
         Row: {
+          application_fee_cents: number
           collected_at: string | null
           commission_cents: number
           created_at: string | null
@@ -201,17 +202,20 @@ export type Database = {
           no_show_at: string | null
           order_code: string
           paid_at: string | null
+          platform_fee_cents: number
           qr_token: string | null
           reminder_sent_at: string | null
           service_fee_cents: number
           slot_id: string
           status: string
+          stripe_checkout_session_id: string | null
           stripe_payment_intent_id: string | null
           subtotal_cents: number
           total_cents: number
           vendor_id: string
         }
         Insert: {
+          application_fee_cents?: number
           collected_at?: string | null
           commission_cents?: number
           created_at?: string | null
@@ -224,17 +228,20 @@ export type Database = {
           no_show_at?: string | null
           order_code: string
           paid_at?: string | null
+          platform_fee_cents?: number
           qr_token?: string | null
           reminder_sent_at?: string | null
           service_fee_cents?: number
           slot_id: string
           status?: string
+          stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
           subtotal_cents?: number
           total_cents?: number
           vendor_id: string
         }
         Update: {
+          application_fee_cents?: number
           collected_at?: string | null
           commission_cents?: number
           created_at?: string | null
@@ -247,11 +254,13 @@ export type Database = {
           no_show_at?: string | null
           order_code?: string
           paid_at?: string | null
+          platform_fee_cents?: number
           qr_token?: string | null
           reminder_sent_at?: string | null
           service_fee_cents?: number
           slot_id?: string
           status?: string
+          stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
           subtotal_cents?: number
           total_cents?: number
@@ -506,6 +515,10 @@ export type Database = {
           rating_count: number
           service_fee_cents: number | null
           slug: string
+          stripe_account_id: string | null
+          stripe_charges_enabled: boolean
+          stripe_details_submitted: boolean
+          stripe_payouts_enabled: boolean
           timezone: string | null
           updated_at: string
         }
@@ -533,6 +546,10 @@ export type Database = {
           rating_count?: number
           service_fee_cents?: number | null
           slug: string
+          stripe_account_id?: string | null
+          stripe_charges_enabled?: boolean
+          stripe_details_submitted?: boolean
+          stripe_payouts_enabled?: boolean
           timezone?: string | null
           updated_at?: string
         }
@@ -560,6 +577,10 @@ export type Database = {
           rating_count?: number
           service_fee_cents?: number | null
           slug?: string
+          stripe_account_id?: string | null
+          stripe_charges_enabled?: boolean
+          stripe_details_submitted?: boolean
+          stripe_payouts_enabled?: boolean
           timezone?: string | null
           updated_at?: string
         }
@@ -583,6 +604,7 @@ export type Database = {
       get_order_by_code: {
         Args: { _code: string }
         Returns: {
+          application_fee_cents: number
           collected_at: string | null
           commission_cents: number
           created_at: string | null
@@ -595,11 +617,13 @@ export type Database = {
           no_show_at: string | null
           order_code: string
           paid_at: string | null
+          platform_fee_cents: number
           qr_token: string | null
           reminder_sent_at: string | null
           service_fee_cents: number
           slot_id: string
           status: string
+          stripe_checkout_session_id: string | null
           stripe_payment_intent_id: string | null
           subtotal_cents: number
           total_cents: number
