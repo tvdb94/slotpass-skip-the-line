@@ -964,3 +964,93 @@ function PricingRulesCard({ vendorId }: { vendorId: string }) {
     </section>
   );
 }
+
+type WaitlistRow = {
+  id: string;
+  slot_id: string;
+  customer_name: string | null;
+  customer_email: string;
+  party_size: number;
+  status: string;
+  offer_expires_at: string | null;
+  created_at: string;
+};
+
+function WaitlistCard({ vendorId }: { vendorId: string }) {
+  const { lang } = useI18n();
+  const [rows, setRows] = useState<WaitlistRow[]>([]);
+  const [slotLabels, setSlotLabels] = useState<Record<string, string>>({});
+
+  async function load() {
+    const { data } = await supabase
+      .from("waitlist_entries")
+      .select("id, slot_id, customer_name, customer_email, party_size, status, offer_expires_at, created_at")
+      .eq("vendor_id", vendorId)
+      .in("status", ["waiting", "offered"])
+      .order("created_at", { ascending: true });
+    const list = (data ?? []) as WaitlistRow[];
+    setRows(list);
+    const ids = Array.from(new Set(list.map((r) => r.slot_id)));
+    if (ids.length) {
+      const { data: s } = await supabase
+        .from("slots")
+        .select("id, date, start_time")
+        .in("id", ids);
+      const map: Record<string, string> = {};
+      for (const row of s ?? []) map[row.id] = `${row.date} · ${String(row.start_time).slice(0, 5)}`;
+      setSlotLabels(map);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    const ch = supabase
+      .channel(`waitlist-${vendorId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "waitlist_entries", filter: `vendor_id=eq.${vendorId}` }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [vendorId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function cancelEntry(id: string) {
+    await supabase.from("waitlist_entries").update({ status: "cancelled" }).eq("id", id);
+    load();
+  }
+
+  return (
+    <section className="mt-6 rounded-2xl border border-border bg-card p-3">
+      <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        {lang === "nl" ? "Wachtlijst" : "Waitlist"}
+      </h2>
+      {rows.length === 0 ? (
+        <div className="mt-2 text-xs text-muted-foreground">
+          {lang === "nl" ? "Geen wachtenden." : "No one waiting."}
+        </div>
+      ) : (
+        <ul className="mt-2 space-y-1">
+          {rows.map((r) => (
+            <li key={r.id} className="flex items-center gap-2 rounded-xl border border-border bg-background p-2 text-xs">
+              <span className="font-mono">{slotLabels[r.slot_id] ?? "…"}</span>
+              <span className="min-w-0 flex-1 truncate">
+                {r.customer_name ?? r.customer_email} · ×{r.party_size}
+              </span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  r.status === "offered" ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {r.status}
+              </span>
+              <button
+                onClick={() => cancelEntry(r.id)}
+                className="text-muted-foreground hover:text-red-600"
+                aria-label="cancel"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
