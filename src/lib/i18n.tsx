@@ -354,6 +354,8 @@ const dict = {
     canceledPayout: "Cancelled",
     orderPending: "Payment being processed…",
     orderPendingHint: "This page will refresh automatically once Stripe confirms your payment.",
+    offlineTicket: "You're offline — this ticket is stored on your device. Show the QR at pickup.",
+    installApp: "Install app",
     dynamicPricing: "Dynamic pricing",
     dynamicPricingHint: "Empty slots get automatic discounts shortly before pickup to boost demand.",
     pricingOn: "On",
