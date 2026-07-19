@@ -3,12 +3,15 @@ import { useEffect, useState } from "react";
 import { LanguageToggle } from "./LanguageToggle";
 import { useI18n } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
+import { subscribeInstallAvailability, triggerInstall } from "@/lib/pwa";
 
 export function Header() {
   const { t } = useI18n();
   const [isStaff, setIsStaff] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [canInstall, setCanInstall] = useState(false);
+  useEffect(() => subscribeInstallAvailability(setCanInstall), []);
   useEffect(() => {
     let cancel = false;
     const check = async () => {
@@ -41,6 +44,14 @@ export function Header() {
         </Link>
         <div className="flex items-center gap-2">
           <LanguageToggle />
+          {canInstall && (
+            <button
+              onClick={() => triggerInstall()}
+              className="hidden rounded-full border border-border px-3 py-1.5 text-xs font-semibold sm:inline-block"
+            >
+              {t("installApp")}
+            </button>
+          )}
           {isAdmin && (
             <Link
               to="/admin"
