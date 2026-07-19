@@ -90,12 +90,18 @@ function OrderPage() {
   }
 
   const { order, items, vendor, slot } = q.data;
+  const isOffline = (q.data as { offline?: boolean }).offline;
   const primary = vendor?.brand_primary ?? "#111111";
 
   return (
     <div className="min-h-screen bg-background pb-10">
       <Header />
       <div className="mx-auto max-w-3xl px-4 pt-4">
+        {isOffline && (
+          <div className="mb-3 rounded-2xl border border-slate-300/60 bg-slate-50 p-3 text-xs text-slate-700">
+            {t("offlineTicket")}
+          </div>
+        )}
         {isPending && (
           <div className="mb-3 rounded-2xl border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-800">
             <div className="font-bold">{t("orderPending")}</div>
