@@ -7,6 +7,7 @@ import { Header } from "@/components/Header";
 import { useI18n } from "@/lib/i18n";
 import { formatEUR, formatTime } from "@/lib/format";
 import { StarRating } from "@/components/StarRating";
+import { cacheOrder, readCachedOrder } from "@/lib/pwa";
 
 export const Route = createFileRoute("/order/$code")({
   component: OrderPage,
@@ -32,23 +33,36 @@ function OrderPage() {
   const q = useQuery({
     queryKey: ["order", code],
     queryFn: async () => {
-      // Uses a security-definer RPC so anon can read a single order by its unguessable code
-      // without opening up SELECT on orders to the public.
-      const { data: rows, error } = await supabase.rpc("get_order_by_code", { _code: code });
-      if (error) throw error;
-      const order = Array.isArray(rows) ? rows[0] : null;
-      if (!order) throw new Error("Order not found");
-      const [items, vendor, slot] = await Promise.all([
-        supabase.rpc("get_order_items_by_code", { _code: code }),
-        supabase.from("vendors").select("name,slug,brand_primary,address,logo_url").eq("id", order.vendor_id).maybeSingle(),
-        supabase.from("slots").select("date,start_time,end_time").eq("id", order.slot_id).maybeSingle(),
-      ]);
-      return {
-        order: order as Order,
-        items: (items.data ?? []) as OrderItem[],
-        vendor: vendor.data as Vendor | null,
-        slot: slot.data as Slot | null,
-      };
+      try {
+        // Uses a security-definer RPC so anon can read a single order by its unguessable code
+        // without opening up SELECT on orders to the public.
+        const { data: rows, error } = await supabase.rpc("get_order_by_code", { _code: code });
+        if (error) throw error;
+        const order = Array.isArray(rows) ? rows[0] : null;
+        if (!order) throw new Error("Order not found");
+        const [items, vendor, slot] = await Promise.all([
+          supabase.rpc("get_order_items_by_code", { _code: code }),
+          supabase.from("vendors").select("name,slug,brand_primary,address,logo_url").eq("id", order.vendor_id).maybeSingle(),
+          supabase.from("slots").select("date,start_time,end_time").eq("id", order.slot_id).maybeSingle(),
+        ]);
+        const result = {
+          order: order as Order,
+          items: (items.data ?? []) as OrderItem[],
+          vendor: vendor.data as Vendor | null,
+          slot: slot.data as Slot | null,
+          offline: false,
+        };
+        // Persist so the QR is available even without a network at pickup.
+        cacheOrder(code, { order: result.order, items: result.items, vendor: result.vendor, slot: result.slot });
+        return result;
+      } catch (err) {
+        // Offline fallback: return the cached copy if we have one.
+        const cached = readCachedOrder<{ order: Order; items: OrderItem[]; vendor: Vendor | null; slot: Slot | null }>(code);
+        if (cached) {
+          return { ...cached.payload, offline: true };
+        }
+        throw err;
+      }
     },
     // While the order is pending payment confirmation from Stripe, poll every 2s.
     refetchInterval: (query) => {
@@ -76,12 +90,18 @@ function OrderPage() {
   }
 
   const { order, items, vendor, slot } = q.data;
+  const isOffline = (q.data as { offline?: boolean }).offline;
   const primary = vendor?.brand_primary ?? "#111111";
 
   return (
     <div className="min-h-screen bg-background pb-10">
       <Header />
       <div className="mx-auto max-w-3xl px-4 pt-4">
+        {isOffline && (
+          <div className="mb-3 rounded-2xl border border-slate-300/60 bg-slate-50 p-3 text-xs text-slate-700">
+            {t("offlineTicket")}
+          </div>
+        )}
         {isPending && (
           <div className="mb-3 rounded-2xl border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-800">
             <div className="font-bold">{t("orderPending")}</div>
