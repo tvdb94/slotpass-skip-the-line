@@ -172,6 +172,8 @@ const dict = {
     canceledPayout: "Geannuleerd",
     orderPending: "Betaling wordt verwerkt…",
     orderPendingHint: "Deze pagina ververst automatisch zodra Stripe je betaling bevestigt.",
+    offlineTicket: "Je bent offline — dit ticket is bewaard op je toestel. Toon de QR-code bij pickup.",
+    installApp: "Installeer app",
     dynamicPricing: "Dynamische prijzen",
     dynamicPricingHint: "Kort voor pickup krijgen lege slots automatisch korting om vraag te sturen.",
     pricingOn: "Aan",
