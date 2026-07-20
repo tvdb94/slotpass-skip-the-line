@@ -501,17 +501,24 @@ export type Database = {
           address: string | null
           applicant_user_id: string | null
           approved_vendor_id: string | null
+          brand_primary: string | null
           business_name: string
           contact_email: string
           contact_name: string
           created_at: string
           cuisine: string
           description: string | null
+          headline_en: string | null
+          headline_nl: string | null
+          hero_description: string | null
           id: string
+          menu_draft: Json | null
           phone: string | null
+          proposed_slug: string | null
           review_notes: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          slots_draft: Json | null
           status: string
           updated_at: string
         }
@@ -519,17 +526,24 @@ export type Database = {
           address?: string | null
           applicant_user_id?: string | null
           approved_vendor_id?: string | null
+          brand_primary?: string | null
           business_name: string
           contact_email: string
           contact_name: string
           created_at?: string
           cuisine: string
           description?: string | null
+          headline_en?: string | null
+          headline_nl?: string | null
+          hero_description?: string | null
           id?: string
+          menu_draft?: Json | null
           phone?: string | null
+          proposed_slug?: string | null
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          slots_draft?: Json | null
           status?: string
           updated_at?: string
         }
@@ -537,17 +551,24 @@ export type Database = {
           address?: string | null
           applicant_user_id?: string | null
           approved_vendor_id?: string | null
+          brand_primary?: string | null
           business_name?: string
           contact_email?: string
           contact_name?: string
           created_at?: string
           cuisine?: string
           description?: string | null
+          headline_en?: string | null
+          headline_nl?: string | null
+          hero_description?: string | null
           id?: string
+          menu_draft?: Json | null
           phone?: string | null
+          proposed_slug?: string | null
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          slots_draft?: Json | null
           status?: string
           updated_at?: string
         }
@@ -741,7 +762,7 @@ export type Database = {
           _brand_primary?: string
           _commission_pct?: number
           _service_fee_cents?: number
-          _slug: string
+          _slug?: string
         }
         Returns: string
       }

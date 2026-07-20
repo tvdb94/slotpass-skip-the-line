@@ -1,91 +1,59 @@
-# Phase 9 — Demand-Shaping
+# Phase 10.1 — Vendor self-signup & onboarding wizard
 
-Four independent features, shipped in this order. Each is a schema migration first, then Server Fns, then UI. All money math and stock decrements happen server-side in Server Fns; RLS forbids client writes to stock/discounts.
+Replace the single-page "Become a vendor" form with a guided wizard, and add a post-approval onboarding flow so new vendors can set up branding, menu, and slots before going live.
 
-## 9.1 Dynamic slot pricing
+## Flow
 
-**Goal:** vendor sets rules that automatically discount low-fill slots as pickup time approaches.
+```text
+/become-vendor  (public wizard, sign-up gated on step 1)
+  1. Account       → email + password (or sign in) → create Supabase user
+  2. Business      → name, cuisine, address, phone, contact
+  3. Branding      → proposed slug, primary brand color, hero description, headline (NL/EN)
+  4. Menu draft    → add 1..N items (name, category, price)
+  5. Slots draft   → day-of-week template: open days, start/end time, capacity
+  6. Review        → summary + submit → status "pending"
+Admin approves in /admin (unchanged UI)
+  → RPC creates vendor row + copies drafts into menu_items, categories, slots for next 7 days
+  → applicant sees /vendor "onboarding" checklist (branding, first slot, Stripe Connect, first order)
+```
 
-**Schema (migration):**
-- `vendors.dynamic_pricing_enabled bool default false`
-- `pricing_rules` table: `id, vendor_id, trigger_minutes int (e.g. 120), max_fill_pct int (e.g. 30), discount_pct numeric(4,2), active bool, priority int`. Vendor-owned via staff; RLS: vendor staff manage; anon SELECT for active rules (needed to display).
-- `slots.auto_discount_pct numeric(4,2) default 0` — computed & written by the pricer.
-- Reuse `item_slot_discounts` for manual off-peak; do NOT collapse them.
+## Data changes
 
-**Server logic:**
-- `src/lib/pricing.server.ts`: `computeSlotDiscount(vendorId, slotId)` — picks the highest-priority matching rule and returns pct.
-- Cron `/api/public/hooks/apply-dynamic-pricing` runs every 5 min: for each slot in next 4h with capacity>0, compute fill %, write `slots.auto_discount_pct`. Idempotent.
-- Checkout server fn: on order-create it re-reads `slots.auto_discount_pct` and applies it AFTER manual `item_slot_discounts` (take the larger of the two per item, not stacked).
+Extend `public.vendor_applications` with wizard draft fields, all nullable so the existing form still works:
 
-**UI:**
-- `/vendor` → new "Pricing rules" card: add/remove rules, toggle enabled.
-- Slot picker (`checkout.tsx`) and vendor page (`$slug.tsx`): show a "−X% off-peak" chip on any slot where `auto_discount_pct > 0`.
-- Promo carousel: include top 3 slots with `auto_discount_pct >= 15`.
+- `proposed_slug text`
+- `brand_primary text`
+- `headline_nl text`, `headline_en text`
+- `hero_description text`
+- `menu_draft jsonb` — array of `{ name, category, price_cents }`
+- `slots_draft jsonb` — `{ days: number[], start: "HH:MM", end: "HH:MM", interval_min: 15, capacity: number }`
 
-## 9.2 Priority slot tier
+Replace `approve_vendor_application(_application_id, _slug, ...)` with a version that:
+1. Reads the application, uses `proposed_slug` when `_slug` is null.
+2. Creates the vendor with brand color + headlines + description.
+3. If `menu_draft` present: upserts categories, inserts menu_items.
+4. If `slots_draft` present: generates 15-min slots for the next 7 days matching the template.
+5. Preserves current staff/user_roles grant + application status update.
 
-**Goal:** paid express-lane premium.
+## Files
 
-**Schema (migration):**
-- `vendors.priority_upcharge_cents int default 0` and `vendors.priority_enabled bool default false`.
-- `slots.priority_capacity int default 0`, `slots.priority_booked int default 0`.
-- `orders.is_priority bool default false`, `orders.priority_upcharge_cents int default 0`.
+- `src/routes/become-vendor.tsx` — rewrite into a stepper (Steps 1-6). Local state per step, "Next"/"Back", progress bar. Uses existing i18n.
+- `src/lib/i18n.tsx` — add wizard strings (step titles, field labels, helper text, submit button) in NL + EN.
+- `src/routes/admin.tsx` — show draft counts (`X items · Y slots/day`) on each pending row so admins see it was submitted via wizard.
+- `src/routes/vendor.tsx` — add an "Onboarding" card at the top for freshly-approved vendors: checklist (Confirm branding, Add first real slot today, Connect Stripe payouts, Receive first order). Dismissable via localStorage per vendor id.
+- New migration: schema extension + updated `approve_vendor_application` function.
 
-**Server logic:**
-- Checkout fn: if `is_priority=true`, verify `priority_booked < priority_capacity`, add upcharge to `subtotal_cents`, and its share to `platform_fee_cents` proportionally (upcharge flows through same Stripe split — vendor keeps upcharge minus commission).
-- Increment `priority_booked` in same transaction.
+## Technical details
 
-**UI:**
-- Slot picker: for each slot that has priority capacity, render a "Priority — +€X.XX" toggle. Selecting it sets `is_priority`.
-- Vendor dashboard: per-slot input for `priority_capacity`.
+- Wizard uses a single component with `step` state (1..6); each step is a small subcomponent to keep the file focused.
+- Step 1 either signs in an existing user or `supabase.auth.signUp` a new one. If signup returns a session (auto-confirm on), continue; otherwise show "check your email" and stop — application is saved after auth.
+- Draft JSON validated client-side (zod-style min checks inline, no new dep) before allowing "Next".
+- Slot template generator is server-side inside the RPC so slot dates are always relative to approval time.
+- Existing single-shot form path is removed; anyone hitting `/become-vendor` gets the wizard.
+- Admin approval no longer needs a slug prompt when `proposed_slug` is set — the admin can still override via the same prompt if desired.
 
-## 9.3 Drop mode (limited daily stock)
+## Out of scope for 10.1
 
-**Goal:** hard stock caps, live counter, auto sold-out.
-
-**Schema (migration):**
-- `menu_items.daily_stock int null` (null = unlimited) and `menu_items.stock_date date null`, `menu_items.stock_remaining int null`.
-- Nightly cron resets `stock_remaining = daily_stock` and updates `stock_date` for items where `daily_stock is not null`.
-
-**Server logic:**
-- Checkout fn: `SELECT ... FOR UPDATE` on stocked items, decrement `stock_remaining` atomically, refuse order if insufficient. Errors surface as friendly "Sold out" per item.
-- Realtime: enable on `menu_items` so the vendor page shows live "X left today".
-
-**UI:**
-- `$slug.tsx` menu card: badge "X left today" when `daily_stock` set; disabled + "Sold out" at 0.
-- `/vendor` menu editor: add `daily_stock` input.
-
-## 9.4 Waitlist for full slots
-
-**Goal:** join queue on full slots; auto-notify on freed capacity with a time-boxed claim.
-
-**Schema (migration):**
-- `waitlist_entries`: `id, slot_id, user_id (nullable for guests), customer_email, customer_name, items jsonb (menu_item_id + qty), status enum('waiting','offered','claimed','expired','canceled'), offered_at, claim_expires_at, created_at`. RLS: user reads own; vendor staff read theirs.
-- Grants + service_role.
-
-**Server logic:**
-- `joinWaitlist` server fn: creates entry if slot full.
-- `releaseSlotCapacity` server fn (called from order cancel/refund/no-show handlers): find oldest `waiting` entry, mark `offered`, set `claim_expires_at = now()+15min`, queue notification via existing `src/lib/notifications.ts`.
-- `claimWaitlistOffer` server fn: converts offer into a real order (routes through the standard checkout path).
-- Cron `/api/public/hooks/expire-waitlist-offers` every minute: expires stale offers and cascades to next in queue.
-
-**UI:**
-- Checkout `SlotPicker`: when a slot is full, replace "Select" with "Join waitlist"; open a mini dialog to capture name/email/phone (or use signed-in profile).
-- New route `/waitlist/$id`: shows queue position, and — when `status='offered'` — a "Claim now" button + countdown.
-- `/orders` (customer portal): add "Waitlist" section.
-
-## Cross-cutting
-
-- **i18n:** add ~25 keys in both nl and en.
-- **Analytics:** vendor dashboard adds "Auto-discount revenue", "Priority orders", "Sold-out timestamps", "Waitlist conversion".
-- **Realtime:** add `menu_items` and `waitlist_entries` to `supabase_realtime` publication.
-- **Tests via preview:** after each sub-phase, take a screenshot of the affected screen (checkout, vendor dashboard, waitlist page) in the running app.
-
-## Execution order
-
-1. 9.1 dynamic pricing (schema → pricer cron → checkout math → UI chips → vendor rules card)
-2. 9.3 drop mode (schema → nightly reset cron → checkout decrement → UI counters)
-3. 9.2 priority tier (schema → checkout upcharge → UI toggle + vendor input)
-4. 9.4 waitlist (schema + RLS → join/claim/expire fns → cron → UI)
-
-Each sub-phase is self-contained; safe to pause between them.
+- Logo / hero image uploads (would need a storage bucket — separate 10.x).
+- Rich menu editor with photos.
+- Stripe Connect onboarding button on the wizard (kept in vendor dashboard as today).
