@@ -412,7 +412,7 @@ function StepBar({ step, total, labels }: { step: number; total: number; labels:
 }
 
 function ReviewStep(props: {
-  t: (k: string) => string;
+  t: (k: any) => string;
   lang: string;
   businessName: string; cuisine: string; address: string; slug: string; brand: string;
   menuCount: number; slots: SlotsDraft;
