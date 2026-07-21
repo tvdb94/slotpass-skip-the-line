@@ -399,7 +399,7 @@ function VendorDashboard() {
           const stripeDone = vendor.stripe_charges_enabled;
           const orderDone = false;
           const steps = [
-            { done: brandingDone, label: t("onboardingConfirmBranding"), href: `/${vendor.slug}` as const },
+            { done: brandingDone, label: t("onboardingConfirmBranding"), href: `/${vendor.slug}` },
             { done: slotDone, label: t("onboardingAddSlot"), href: null },
             { done: stripeDone, label: t("onboardingConnectStripe"), href: null },
             { done: orderDone, label: t("onboardingFirstOrder"), href: null },
@@ -428,9 +428,9 @@ function VendorDashboard() {
                       {s.done ? "✓" : i + 1}
                     </span>
                     {s.href ? (
-                      <Link to={s.href} className={s.done ? "line-through text-muted-foreground" : "font-semibold underline"}>
+                      <a href={s.href} className={s.done ? "line-through text-muted-foreground" : "font-semibold underline"}>
                         {s.label}
-                      </Link>
+                      </a>
                     ) : (
                       <span className={s.done ? "line-through text-muted-foreground" : "font-semibold"}>{s.label}</span>
                     )}
