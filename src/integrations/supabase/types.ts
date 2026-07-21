@@ -348,6 +348,7 @@ export type Database = {
           created_at: string
           customer_user_id: string | null
           id: string
+          is_hidden: boolean
           order_id: string
           rating: number
           vendor_id: string
@@ -357,6 +358,7 @@ export type Database = {
           created_at?: string
           customer_user_id?: string | null
           id?: string
+          is_hidden?: boolean
           order_id: string
           rating: number
           vendor_id: string
@@ -366,6 +368,7 @@ export type Database = {
           created_at?: string
           customer_user_id?: string | null
           id?: string
+          is_hidden?: boolean
           order_id?: string
           rating?: number
           vendor_id?: string
@@ -587,6 +590,7 @@ export type Database = {
           address: string | null
           brand_primary: string | null
           brand_secondary: string | null
+          city: string | null
           commission_pct: number
           created_at: string | null
           cuisine: string
@@ -619,6 +623,7 @@ export type Database = {
           address?: string | null
           brand_primary?: string | null
           brand_secondary?: string | null
+          city?: string | null
           commission_pct?: number
           created_at?: string | null
           cuisine: string
@@ -651,6 +656,7 @@ export type Database = {
           address?: string | null
           brand_primary?: string | null
           brand_secondary?: string | null
+          city?: string | null
           commission_pct?: number
           created_at?: string | null
           cuisine?: string
