@@ -20,11 +20,34 @@ type Application = {
   status: string;
   review_notes: string | null;
   created_at: string;
+  proposed_slug: string | null;
+  brand_primary: string | null;
+  menu_draft: unknown;
+  slots_draft: unknown;
 };
 
 function slugify(s: string) {
   return s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+}
+
+function draftSummary(a: Application): string | null {
+  const menu = Array.isArray(a.menu_draft) ? (a.menu_draft as unknown[]).length : 0;
+  const s = a.slots_draft && typeof a.slots_draft === "object" ? (a.slots_draft as any) : null;
+  const days = s && Array.isArray(s.days) ? s.days.length : 0;
+  let slotsPerDay = 0;
+  if (s && typeof s.start === "string" && typeof s.end === "string") {
+    const [sh, sm] = s.start.split(":").map(Number);
+    const [eh, em] = s.end.split(":").map(Number);
+    const interval = Number(s.interval_min) || 15;
+    const mins = (eh * 60 + em) - (sh * 60 + sm);
+    if (mins > 0 && interval > 0) slotsPerDay = Math.floor(mins / interval);
+  }
+  if (!menu && !slotsPerDay) return null;
+  const parts: string[] = [];
+  if (menu) parts.push(`${menu} items`);
+  if (slotsPerDay) parts.push(`${slotsPerDay} slots × ${days || 0}d`);
+  return parts.join(" · ");
 }
 
 function AdminPage() {
@@ -54,14 +77,14 @@ function AdminPage() {
   async function reload() {
     const { data } = await supabase
       .from("vendor_applications")
-      .select("id,business_name,contact_name,contact_email,phone,cuisine,address,description,status,review_notes,created_at")
+      .select("id,business_name,contact_name,contact_email,phone,cuisine,address,description,status,review_notes,created_at,proposed_slug,brand_primary,menu_draft,slots_draft")
       .order("created_at", { ascending: false })
       .limit(100);
     setApps((data ?? []) as Application[]);
   }
 
   async function approve(a: Application) {
-    const suggested = slugify(a.business_name);
+    const suggested = a.proposed_slug || slugify(a.business_name);
     const slug = window.prompt(`${t("slugLabel")}:`, suggested);
     if (!slug) return;
     setBusyId(a.id);
@@ -133,10 +156,20 @@ function AdminPage() {
                 <li key={a.id} className="rounded-2xl border border-border bg-card p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="font-bold">{a.business_name}</div>
+                      <div className="flex items-center gap-2 font-bold">
+                        {a.brand_primary && (
+                          <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: a.brand_primary }} />
+                        )}
+                        {a.business_name}
+                      </div>
                       <div className="text-xs text-muted-foreground">{a.cuisine}{a.address ? ` · ${a.address}` : ""}</div>
                       <div className="mt-1 text-xs">{a.contact_name} · {a.contact_email}{a.phone ? ` · ${a.phone}` : ""}</div>
                       {a.description && <p className="mt-2 text-xs text-muted-foreground">{a.description}</p>}
+                      {(() => { const s = draftSummary(a); return s ? (
+                        <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          wizard · {s}{a.proposed_slug ? ` · /${a.proposed_slug}` : ""}
+                        </div>
+                      ) : null; })()}
                     </div>
                     <div className="flex shrink-0 flex-col gap-1">
                       <button

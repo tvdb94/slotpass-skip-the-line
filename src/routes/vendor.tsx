@@ -62,6 +62,7 @@ function VendorDashboard() {
   const [flash, setFlash] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsRow[]>([]);
   const [topItems, setTopItems] = useState<TopItem[]>([]);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
   // Stripe Connect UI state
   const [connectBusy, setConnectBusy] = useState(false);
@@ -389,6 +390,56 @@ function VendorDashboard() {
             </span>
           </div>
         </div>
+
+        {vendor && orders.length === 0 && !onboardingDismissed && (() => {
+          const key = `slotpass:onboarding-dismissed:${vendor.id}`;
+          if (typeof window !== "undefined" && localStorage.getItem(key)) return null;
+          const brandingDone = Boolean(vendor.brand_primary);
+          const slotDone = slots.some((s) => s.is_open);
+          const stripeDone = vendor.stripe_charges_enabled;
+          const orderDone = false;
+          const steps = [
+            { done: brandingDone, label: t("onboardingConfirmBranding"), href: `/${vendor.slug}` },
+            { done: slotDone, label: t("onboardingAddSlot"), href: null },
+            { done: stripeDone, label: t("onboardingConnectStripe"), href: null },
+            { done: orderDone, label: t("onboardingFirstOrder"), href: null },
+          ];
+          const completed = steps.filter((s) => s.done).length;
+          return (
+            <section className="mt-4 rounded-2xl border border-border bg-card p-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  {t("onboarding")} · {completed}/{steps.length}
+                </div>
+                <button
+                  onClick={() => { localStorage.setItem(key, "1"); setOnboardingDismissed(true); }}
+                  className="text-[11px] font-semibold text-muted-foreground underline"
+                >
+                  {t("onboardingDismiss")}
+                </button>
+              </div>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div className="h-full transition-all" style={{ width: `${(completed / steps.length) * 100}%`, background: primary }} />
+              </div>
+              <ul className="mt-3 space-y-1.5 text-sm">
+                {steps.map((s, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${s.done ? "bg-emerald-600 text-white" : "border border-border text-muted-foreground"}`}>
+                      {s.done ? "✓" : i + 1}
+                    </span>
+                    {s.href ? (
+                      <a href={s.href} className={s.done ? "line-through text-muted-foreground" : "font-semibold underline"}>
+                        {s.label}
+                      </a>
+                    ) : (
+                      <span className={s.done ? "line-through text-muted-foreground" : "font-semibold"}>{s.label}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })()}
 
         {/* Stripe Connect status */}
         {vendor && (
