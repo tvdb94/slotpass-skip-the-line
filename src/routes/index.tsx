@@ -37,6 +37,14 @@ function Index() {
       if (raw) setGeo(JSON.parse(raw));
     } catch {}
   }, []);
+  // Capture ?ref=CODE for later use at checkout
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      const ref = url.searchParams.get("ref");
+      if (ref) localStorage.setItem("slotpass.ref", ref);
+    } catch {}
+  }, []);
   function requestGeo() {
     if (!navigator.geolocation) { setGeoStatus("denied"); return; }
     setGeoStatus("locating");
