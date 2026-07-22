@@ -173,10 +173,29 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     }
     const platformFee = vendor.service_fee_cents ?? 0;
     const priorityUpcharge = data.isPriority ? (slot.priority_upcharge_cents ?? 0) : 0;
-    const commissionable = subtotal - discount;
+
+    // Promo code (optional): validate server-side against the net subtotal.
+    let promoDiscount = 0;
+    let promoCodeId: string | null = null;
+    if (data.promoCode) {
+      const netSubtotal = subtotal - discount;
+      const { data: rows, error: pErr } = await supabaseAdmin.rpc("validate_promo_code", {
+        _code: data.promoCode,
+        _vendor_id: vendor.id,
+        _subtotal_cents: netSubtotal,
+        _email: data.customerEmail,
+      });
+      if (pErr) throw new Error(pErr.message);
+      const row = Array.isArray(rows) ? rows[0] : rows;
+      if (!row) throw new Error("Invalid promo code");
+      promoDiscount = Math.min(netSubtotal, Number(row.discount_cents ?? 0));
+      promoCodeId = row.promo_code_id as string;
+    }
+
+    const commissionable = subtotal - discount - promoDiscount;
     const commissionPct = Number(vendor.commission_pct ?? 0);
-    const commission = Math.round((commissionable * commissionPct) / 100);
-    const totalWithFee = subtotal - discount + platformFee + priorityUpcharge;
+    const commission = Math.round((Math.max(0, commissionable) * commissionPct) / 100);
+    const totalWithFee = subtotal - discount - promoDiscount + platformFee + priorityUpcharge;
     if (totalWithFee <= 0) throw new Error("Order total must be positive");
     const appFee = applicationFeeCents(platformFee, commission);
 
@@ -203,10 +222,31 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         qr_token: qrToken,
         is_priority: data.isPriority,
         priority_upcharge_cents: priorityUpcharge,
+        promo_code_id: promoCodeId,
+        promo_discount_cents: promoDiscount,
       })
       .select()
       .single();
     if (oErr || !order) throw new Error(oErr?.message ?? "Failed to create order");
+
+    // Record redemption + bump uses_count (best-effort)
+    if (promoCodeId) {
+      await supabaseAdmin.from("promo_redemptions").insert({
+        promo_code_id: promoCodeId,
+        order_id: order.id,
+        customer_email: data.customerEmail,
+        amount_cents: promoDiscount,
+      });
+      const { data: pc } = await supabaseAdmin
+        .from("promo_codes")
+        .select("uses_count")
+        .eq("id", promoCodeId)
+        .maybeSingle();
+      await supabaseAdmin
+        .from("promo_codes")
+        .update({ uses_count: (pc?.uses_count ?? 0) + 1 })
+        .eq("id", promoCodeId);
+    }
 
     // Mark waitlist entry as claimed with this order (best-effort)
     if (data.waitlistEntryId) {
