@@ -166,7 +166,7 @@ function Checkout() {
   }, [priorityAvail]);
 
   // Compute per-item discount for the selected slot
-  const { subtotalCents, discountCents, serviceFeeCents, totalWithFeeCents, commissionCents } = useMemo(() => {
+  const { subtotalCents, discountCents, serviceFeeCents, totalWithFeeCents, commissionCents, promoDiscountCents } = useMemo(() => {
     let subtotal = 0;
     let discount = 0;
     for (const item of cart.items) {
@@ -185,18 +185,21 @@ function Checkout() {
       }
     }
     const fee = vendor?.service_fee_cents ?? 0;
-    const commissionable = subtotal - discount; // vendor commission is on net item revenue, not the platform fee
+    const netAfterSlot = subtotal - discount;
+    const promoD = promo ? Math.min(netAfterSlot, promo.discountCents) : 0;
+    const commissionable = netAfterSlot - promoD;
     const commissionPct = vendor?.commission_pct ?? 0;
-    const commissionCents = Math.round((commissionable * Number(commissionPct)) / 100);
+    const commissionCents = Math.round((Math.max(0, commissionable) * Number(commissionPct)) / 100);
     const priorityUp = priority ? (selectedSlot?.priority_upcharge_cents ?? 0) : 0;
     return {
       subtotalCents: subtotal,
       discountCents: discount,
       serviceFeeCents: fee,
-      totalWithFeeCents: subtotal - discount + fee + priorityUp,
+      totalWithFeeCents: subtotal - discount - promoD + fee + priorityUp,
       commissionCents,
+      promoDiscountCents: promoD,
     };
-  }, [cart.items, discounts, selectedSlot, vendor, priority]);
+  }, [cart.items, discounts, selectedSlot, vendor, priority, promo]);
 
   const seatOk =
     !selectedSlot ||
@@ -307,6 +310,7 @@ function Checkout() {
           lang,
           isPriority: priority && priorityAvail,
           waitlistEntryId: waitlistOffer ? waitlistOffer.id : null,
+          promoCode: promo?.code ?? null,
         },
       });
       if (!res.url) throw new Error("Stripe returned no checkout URL");
