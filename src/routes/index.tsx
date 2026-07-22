@@ -26,6 +26,31 @@ function Index() {
   const [cuisine, setCuisine] = useState<string | "all">("all");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"recommended" | "distance" | "rating" | "discount" | "nextSlot">("recommended");
+  const [onlyDiscount, setOnlyDiscount] = useState(false);
+  const [onlyOpen, setOnlyOpen] = useState(false);
+  const [geo, setGeo] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoStatus, setGeoStatus] = useState<"idle" | "locating" | "denied">("idle");
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("slotpass.geo");
+      if (raw) setGeo(JSON.parse(raw));
+    } catch {}
+  }, []);
+  function requestGeo() {
+    if (!navigator.geolocation) { setGeoStatus("denied"); return; }
+    setGeoStatus("locating");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const g = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setGeo(g); setGeoStatus("idle");
+        try { localStorage.setItem("slotpass.geo", JSON.stringify(g)); } catch {}
+        setSortBy("distance");
+      },
+      () => setGeoStatus("denied"),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 },
+    );
+  }
   useEffect(() => {
     const id = setTimeout(() => setSearch(searchInput.trim()), 250);
     return () => clearTimeout(id);
@@ -98,7 +123,37 @@ function Index() {
   }, [searchActive, search, vendors, dishMatches]);
 
   const cuisines = useMemo(() => Array.from(new Set(vendors.map((v) => v.cuisine))), [vendors]);
-  const filtered = searched ?? (cuisine === "all" ? vendors : vendors.filter((v) => v.cuisine === cuisine));
+  const base = searched ?? (cuisine === "all" ? vendors : vendors.filter((v) => v.cuisine === cuisine));
+  const withDistance = useMemo(() => {
+    return base.map((v) => {
+      let dist: number | null = null;
+      if (geo && v.lat != null && v.lng != null) {
+        const R = 6371;
+        const dLat = (v.lat - geo.lat) * Math.PI / 180;
+        const dLng = (v.lng - geo.lng) * Math.PI / 180;
+        const a = Math.sin(dLat/2)**2 + Math.cos(geo.lat*Math.PI/180)*Math.cos(v.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+        dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      }
+      return { v, dist };
+    });
+  }, [base, geo]);
+  const filteredSorted = useMemo(() => {
+    let arr = withDistance;
+    if (onlyDiscount) arr = arr.filter(({ v }) => (meta.get(v.id)?.maxDiscount ?? 0) > 0);
+    if (onlyOpen) arr = arr.filter(({ v }) => !!meta.get(v.id)?.next);
+    const sorted = [...arr];
+    if (sortBy === "distance") sorted.sort((a, b) => (a.dist ?? Infinity) - (b.dist ?? Infinity));
+    else if (sortBy === "rating") sorted.sort((a, b) => (b.v.rating ?? 0) - (a.v.rating ?? 0));
+    else if (sortBy === "discount") sorted.sort((a, b) => (meta.get(b.v.id)?.maxDiscount ?? 0) - (meta.get(a.v.id)?.maxDiscount ?? 0));
+    else if (sortBy === "nextSlot") sorted.sort((a, b) => {
+      const an = meta.get(a.v.id)?.next; const bn = meta.get(b.v.id)?.next;
+      if (!an && !bn) return 0; if (!an) return 1; if (!bn) return -1;
+      return (an.date + an.start_time).localeCompare(bn.date + bn.start_time);
+    });
+    return sorted;
+  }, [withDistance, onlyDiscount, onlyOpen, sortBy, meta]);
+  const filtered = filteredSorted.map((x) => x.v);
+  const distanceById = new Map(filteredSorted.map((x) => [x.v.id, x.dist] as const));
   const featured = vendors.filter((v) => v.is_featured);
 
   // Promo carousel: auto-advance + dot indicators
@@ -177,9 +232,13 @@ function Index() {
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 pt-3">
         <div className="min-w-0 flex-1">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">📍 {lang === "nl" ? "Bezorging bij" : "Pickup near"}</div>
-          <button className="mt-0.5 flex items-center gap-1.5 text-left">
-            <span className="truncate text-base font-bold">{t("currentLocation")}</span>
-            <span className="text-xs font-semibold text-muted-foreground underline">{t("changeLocation")}</span>
+          <button onClick={requestGeo} className="mt-0.5 flex items-center gap-1.5 text-left">
+            <span className="truncate text-base font-bold">
+              {geo ? t("nearMe") : t("currentLocation")}
+            </span>
+            <span className="text-xs font-semibold text-muted-foreground underline">
+              {geoStatus === "locating" ? t("locating") : geoStatus === "denied" ? t("locationDenied") : t("useMyLocation")}
+            </span>
           </button>
         </div>
         <div className="inline-flex shrink-0 overflow-hidden rounded-full border border-border bg-background p-0.5 text-xs font-semibold">
@@ -197,6 +256,38 @@ function Index() {
           </button>
         </div>
       </div>
+
+      {/* Sort + quick filters */}
+      {!searchActive && view === "list" && (
+        <div className="mx-auto mt-3 flex max-w-3xl flex-wrap items-center gap-2 px-4">
+          <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+            {t("sortBy")}:
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-foreground"
+            >
+              <option value="recommended">{t("sortRecommended")}</option>
+              <option value="distance" disabled={!geo}>{t("sortDistance")}</option>
+              <option value="rating">{t("sortRating")}</option>
+              <option value="discount">{t("sortDiscount")}</option>
+              <option value="nextSlot">{t("sortNextSlot")}</option>
+            </select>
+          </label>
+          <button
+            onClick={() => setOnlyDiscount((v) => !v)}
+            className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold transition ${onlyDiscount ? "border-foreground bg-foreground text-background" : "border-border bg-background text-foreground"}`}
+          >
+            {t("filterDiscount")}
+          </button>
+          <button
+            onClick={() => setOnlyOpen((v) => !v)}
+            className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold transition ${onlyOpen ? "border-foreground bg-foreground text-background" : "border-border bg-background text-foreground"}`}
+          >
+            {t("filterOpenNow")}
+          </button>
+        </div>
+      )}
 
       {view === "map" ? (
         <div className="mx-auto mt-4 h-[70vh] max-w-3xl overflow-hidden rounded-2xl border border-border">
@@ -309,6 +400,7 @@ function Index() {
                 {filtered.map((v) => {
                   const m = meta.get(v.id);
                   const dishHit = dishMatches.get(v.id);
+                  const dist = distanceById.get(v.id);
                   return (
                     <li key={v.id} className="animate-fade-in">
                       <a
@@ -329,6 +421,11 @@ function Index() {
                             <span className="ml-auto shrink-0 text-xs font-semibold">★ {v.rating?.toFixed(1)}</span>
                           </div>
                           <div className="mt-0.5 truncate text-xs text-muted-foreground">{v.cuisine} · {v.address}</div>
+                          {dist != null && (
+                            <div className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
+                              {dist < 1 ? `${Math.round(dist * 1000)} ${t("mAway")}` : `${dist.toFixed(1)} ${t("kmAway")}`}
+                            </div>
+                          )}
                           {searchActive && dishHit && (
                             <div className="mt-1 truncate text-[11px] text-muted-foreground">
                               <span className="font-semibold text-foreground">{t("matchedDish")}:</span> {dishHit}
