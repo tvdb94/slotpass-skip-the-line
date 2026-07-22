@@ -250,6 +250,7 @@ function Checkout() {
           customer_phone: phone || null,
           qr_token: qrToken,
           paid_at: new Date().toISOString(),
+          promo_discount_cents: promoDiscountCents,
         })
         .select()
         .single();
