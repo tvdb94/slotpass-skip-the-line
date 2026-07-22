@@ -18,8 +18,7 @@ export const validatePromoCode = createServerFn({ method: "POST" })
       _code: data.code,
       _vendor_id: data.vendorId,
       _subtotal_cents: data.subtotalCents,
-      _user_id: null,
-      _email: data.email ?? null,
+      _email: data.email ?? undefined,
     });
     if (error) throw new Error(error.message);
     const row = Array.isArray(rows) ? rows[0] : rows;
