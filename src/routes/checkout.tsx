@@ -8,12 +8,14 @@ import { useCart } from "@/lib/cart";
 import { formatEUR, formatTime } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { createCheckoutSession } from "@/lib/checkout.functions";
+import { validatePromoCode } from "@/lib/promo.functions";
 
 export const Route = createFileRoute("/checkout")({
   component: Checkout,
   validateSearch: (s: Record<string, unknown>) => ({
     waitlist: typeof s.waitlist === "string" ? s.waitlist : undefined,
     cancelled: s.cancelled === "1" || s.cancelled === 1 ? 1 : undefined,
+    ref: typeof s.ref === "string" ? s.ref : undefined,
   }),
 });
 
@@ -43,6 +45,11 @@ function Checkout() {
   const [waitlistBusy, setWaitlistBusy] = useState(false);
   const [waitlistMsg, setWaitlistMsg] = useState<string | null>(null);
   const createSession = useServerFn(createCheckoutSession);
+  const validatePromo = useServerFn(validatePromoCode);
+  const [promoInput, setPromoInput] = useState("");
+  const [promo, setPromo] = useState<{ code: string; discountCents: number } | null>(null);
+  const [promoErr, setPromoErr] = useState<string | null>(null);
+  const [promoBusy, setPromoBusy] = useState(false);
 
   const vendorQ = useQuery({
     enabled: !!cart.vendor_id,
@@ -93,6 +100,14 @@ function Checkout() {
   const slots = slotsQ.data ?? [];
   const discounts = discountsQ.data ?? [];
   const primary = vendor?.brand_primary ?? "#111111";
+
+  // Prefill promo from ?ref= or persisted referral
+  useEffect(() => {
+    if (promoInput) return;
+    const ref = search.ref || (typeof window !== "undefined" ? localStorage.getItem("slotpass.ref") : null);
+    if (ref) setPromoInput(ref);
+    if (search.ref && typeof window !== "undefined") localStorage.setItem("slotpass.ref", search.ref);
+  }, [search.ref]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Only future slots with capacity
   const availableSlots = useMemo(() => {
