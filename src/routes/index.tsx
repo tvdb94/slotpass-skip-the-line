@@ -124,6 +124,25 @@ function Index() {
 
   const cuisines = useMemo(() => Array.from(new Set(vendors.map((v) => v.cuisine))), [vendors]);
   const base = searched ?? (cuisine === "all" ? vendors : vendors.filter((v) => v.cuisine === cuisine));
+  // per-vendor next available slot + max discount today
+  const meta = useMemo(() => {
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const today = now.toISOString().slice(0, 10);
+    const m = new Map<string, { next?: Slot; maxDiscount: number }>();
+    for (const s of slots) {
+      const capOk = s.orders_count < s.capacity;
+      if (!capOk) continue;
+      const stMin = Number(s.start_time.slice(0, 2)) * 60 + Number(s.start_time.slice(3, 5));
+      const future = s.date > today || (s.date === today && stMin > nowMin);
+      if (!future) continue;
+      const cur = m.get(s.vendor_id) ?? { maxDiscount: 0 };
+      if (!cur.next) cur.next = s;
+      if (s.discount_pct > cur.maxDiscount) cur.maxDiscount = s.discount_pct;
+      m.set(s.vendor_id, cur);
+    }
+    return m;
+  }, [slots]);
   const withDistance = useMemo(() => {
     return base.map((v) => {
       let dist: number | null = null;
@@ -180,26 +199,6 @@ function Index() {
     const idx = Math.round(el.scrollLeft / (el.clientWidth * 0.85));
     if (idx !== activePromo) setActivePromo(Math.min(idx, featured.length - 1));
   }
-
-  // per-vendor next available slot + max discount today
-  const meta = useMemo(() => {
-    const now = new Date();
-    const nowMin = now.getHours() * 60 + now.getMinutes();
-    const today = now.toISOString().slice(0, 10);
-    const m = new Map<string, { next?: Slot; maxDiscount: number }>();
-    for (const s of slots) {
-      const capOk = s.orders_count < s.capacity;
-      if (!capOk) continue;
-      const stMin = Number(s.start_time.slice(0, 2)) * 60 + Number(s.start_time.slice(3, 5));
-      const future = s.date > today || (s.date === today && stMin > nowMin);
-      if (!future) continue;
-      const cur = m.get(s.vendor_id) ?? { maxDiscount: 0 };
-      if (!cur.next) cur.next = s;
-      if (s.discount_pct > cur.maxDiscount) cur.maxDiscount = s.discount_pct;
-      m.set(s.vendor_id, cur);
-    }
-    return m;
-  }, [slots]);
 
   return (
     <div className="min-h-screen bg-background pb-10">
