@@ -569,6 +569,39 @@ function Checkout() {
         </section>
 
         {/* Totals */}
+        {/* Promo code */}
+        <section className="mt-5">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("promoCode")}</h2>
+          {promo ? (
+            <div className="mt-2 flex items-center justify-between rounded-xl border border-emerald-300/60 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              <span>
+                <span className="font-bold">{promo.code}</span>
+                <span className="ml-2 text-xs">− {formatEUR(promoDiscountCents)}</span>
+              </span>
+              <button onClick={removePromo} className="text-xs font-semibold underline">
+                {t("remove")}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-2 flex gap-2">
+              <input
+                value={promoInput}
+                onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                placeholder={t("promoPlaceholder")}
+                className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              />
+              <button
+                onClick={applyPromo}
+                disabled={promoBusy || !promoInput.trim()}
+                className="rounded-xl border border-border px-3 py-2 text-xs font-bold disabled:opacity-40"
+              >
+                {promoBusy ? t("loading") : t("apply")}
+              </button>
+            </div>
+          )}
+          {promoErr && <div className="mt-1 text-xs text-red-600">{promoErr}</div>}
+        </section>
+
         <section className="mt-5 rounded-2xl border border-border bg-card p-3 text-sm">
           <Row label={t("subtotal")} value={formatEUR(subtotalCents)} />
           {discountCents > 0 && (
