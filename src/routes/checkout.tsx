@@ -346,6 +346,34 @@ function Checkout() {
     }
   }
 
+  async function applyPromo() {
+    if (!vendor || !promoInput.trim()) return;
+    setPromoBusy(true);
+    setPromoErr(null);
+    try {
+      const netSubtotal = Math.max(1, subtotalCents - discountCents);
+      const res = await validatePromo({
+        data: {
+          code: promoInput.trim(),
+          vendorId: vendor.id,
+          subtotalCents: netSubtotal,
+          email: email || null,
+        },
+      });
+      setPromo({ code: res.code, discountCents: res.discountCents });
+    } catch (e) {
+      setPromo(null);
+      setPromoErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPromoBusy(false);
+    }
+  }
+  function removePromo() {
+    setPromo(null);
+    setPromoInput("");
+    setPromoErr(null);
+  }
+
   if (!cart.vendor_id || cart.items.length === 0) {
     return (
       <div className="min-h-screen bg-background">
