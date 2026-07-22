@@ -574,6 +574,9 @@ function Checkout() {
           {discountCents > 0 && (
             <Row label={`${t("offPeak")} ${t("off")}`} value={`− ${formatEUR(discountCents)}`} />
           )}
+          {promo && promoDiscountCents > 0 && (
+            <Row label={`${t("promoCode")} ${promo.code}`} value={`− ${formatEUR(promoDiscountCents)}`} />
+          )}
           <Row label={t("serviceFee")} value={formatEUR(serviceFeeCents)} />
           {priority && priorityAvail && selectedSlot && (
             <Row
