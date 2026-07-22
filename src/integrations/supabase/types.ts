@@ -214,6 +214,8 @@ export type Database = {
           paid_at: string | null
           platform_fee_cents: number
           priority_upcharge_cents: number
+          promo_code_id: string | null
+          promo_discount_cents: number
           qr_token: string | null
           reminder_sent_at: string | null
           service_fee_cents: number
@@ -242,6 +244,8 @@ export type Database = {
           paid_at?: string | null
           platform_fee_cents?: number
           priority_upcharge_cents?: number
+          promo_code_id?: string | null
+          promo_discount_cents?: number
           qr_token?: string | null
           reminder_sent_at?: string | null
           service_fee_cents?: number
@@ -270,6 +274,8 @@ export type Database = {
           paid_at?: string | null
           platform_fee_cents?: number
           priority_upcharge_cents?: number
+          promo_code_id?: string | null
+          promo_discount_cents?: number
           qr_token?: string | null
           reminder_sent_at?: string | null
           service_fee_cents?: number
@@ -282,6 +288,13 @@ export type Database = {
           vendor_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_slot_id_fkey"
             columns: ["slot_id"]
@@ -338,6 +351,110 @@ export type Database = {
             columns: ["vendor_id"]
             isOneToOne: false
             referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_codes: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          max_uses: number | null
+          min_subtotal_cents: number | null
+          owner_user_id: string | null
+          updated_at: string
+          uses_count: number
+          value_cents: number | null
+          value_pct: number | null
+          vendor_id: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          kind: string
+          max_uses?: number | null
+          min_subtotal_cents?: number | null
+          owner_user_id?: string | null
+          updated_at?: string
+          uses_count?: number
+          value_cents?: number | null
+          value_pct?: number | null
+          vendor_id?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          max_uses?: number | null
+          min_subtotal_cents?: number | null
+          owner_user_id?: string | null
+          updated_at?: string
+          uses_count?: number
+          value_cents?: number | null
+          value_pct?: number | null
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_codes_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_redemptions: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          customer_email: string | null
+          id: string
+          order_id: string | null
+          promo_code_id: string
+          user_id: string | null
+        }
+        Insert: {
+          amount_cents?: number
+          created_at?: string
+          customer_email?: string | null
+          id?: string
+          order_id?: string | null
+          promo_code_id: string
+          user_id?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          customer_email?: string | null
+          id?: string
+          order_id?: string | null
+          promo_code_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_redemptions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_redemptions_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
             referencedColumns: ["id"]
           },
         ]
@@ -777,6 +894,7 @@ export type Database = {
         Args: { _item_id: string; _qty: number }
         Returns: number
       }
+      get_or_create_my_referral_code: { Args: never; Returns: string }
       get_order_by_code: {
         Args: { _code: string }
         Returns: {
@@ -796,6 +914,8 @@ export type Database = {
           paid_at: string | null
           platform_fee_cents: number
           priority_upcharge_cents: number
+          promo_code_id: string | null
+          promo_discount_cents: number
           qr_token: string | null
           reminder_sent_at: string | null
           service_fee_cents: number
@@ -840,6 +960,21 @@ export type Database = {
         Returns: undefined
       }
       reset_daily_stock: { Args: never; Returns: undefined }
+      validate_promo_code: {
+        Args: {
+          _code: string
+          _email?: string
+          _subtotal_cents: number
+          _user_id?: string
+          _vendor_id: string
+        }
+        Returns: {
+          code: string
+          discount_cents: number
+          kind: string
+          promo_code_id: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "vendor" | "customer"
