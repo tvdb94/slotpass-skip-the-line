@@ -535,6 +535,17 @@ const dict = {
     filterOpenNow: "Slot today",
     kmAway: "km",
     mAway: "m",
+    promoCode: "Promo code",
+    promoPlaceholder: "Enter code",
+    apply: "Apply",
+    remove: "Remove",
+    promoApplied: "Code applied",
+    promoInvalid: "Invalid code",
+    referralTitle: "Invite a friend",
+    referralBlurb: "Share your code. They get 10% off their first order.",
+    yourCode: "Your code",
+    copy: "Copy",
+    copied: "Copied",
   },
 } as const;
 
