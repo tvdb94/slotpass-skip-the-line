@@ -15,6 +15,7 @@ const InputSchema = z.object({
   lang: z.enum(["nl", "en"]).default("nl"),
   isPriority: z.boolean().default(false),
   waitlistEntryId: z.string().uuid().optional().nullable(),
+  promoCode: z.string().trim().min(2).max(40).optional().nullable(),
 });
 
 function generateOrderCode() {
