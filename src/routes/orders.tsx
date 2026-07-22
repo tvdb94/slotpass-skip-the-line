@@ -6,6 +6,8 @@ import { Header } from "@/components/Header";
 import { useI18n } from "@/lib/i18n";
 import { useCart } from "@/lib/cart";
 import { formatEUR, formatTime } from "@/lib/format";
+import { useServerFn } from "@tanstack/react-start";
+import { getMyReferralCode } from "@/lib/promo.functions";
 
 export const Route = createFileRoute("/orders")({
   component: OrdersPage,
@@ -39,6 +41,9 @@ function OrdersPage() {
   const { t, lang } = useI18n();
   const [userId, setUserId] = useState<string | null | undefined>(undefined);
   const [email, setEmail] = useState<string | null>(null);
+  const [refCode, setRefCode] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const getRef = useServerFn(getMyReferralCode);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -46,6 +51,19 @@ function OrdersPage() {
       setEmail(data.user?.email ?? null);
     });
   }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    getRef({}).then((r) => setRefCode(r.code)).catch(() => {});
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const shareUrl = refCode && typeof window !== "undefined"
+    ? `${window.location.origin}/?ref=${refCode}`
+    : "";
+  const copy = async () => {
+    if (!shareUrl) return;
+    try { await navigator.clipboard.writeText(shareUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
+  };
 
   const q = useQuery({
     enabled: userId !== undefined && (!!userId || !!email),
@@ -135,6 +153,24 @@ function OrdersPage() {
       <Header />
       <div className="mx-auto max-w-3xl px-4 pt-4">
         <h1 className="text-xl font-black">{t("myOrders")}</h1>
+
+        {refCode && (
+          <section className="mt-4 rounded-2xl border border-border bg-card p-4">
+            <div className="text-sm font-bold">{t("referralTitle")}</div>
+            <div className="mt-1 text-xs text-muted-foreground">{t("referralBlurb")}</div>
+            <div className="mt-3 flex items-center gap-2">
+              <code className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm font-bold tracking-wider">
+                {refCode}
+              </code>
+              <button
+                onClick={copy}
+                className="rounded-lg border border-border px-3 py-2 text-xs font-bold"
+              >
+                {copied ? t("copied") : t("copy")}
+              </button>
+            </div>
+          </section>
+        )}
 
         {q.isLoading && <div className="mt-4 text-sm text-muted-foreground">{t("loading")}</div>}
 

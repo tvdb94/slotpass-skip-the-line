@@ -8,12 +8,14 @@ import { useCart } from "@/lib/cart";
 import { formatEUR, formatTime } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { createCheckoutSession } from "@/lib/checkout.functions";
+import { validatePromoCode } from "@/lib/promo.functions";
 
 export const Route = createFileRoute("/checkout")({
   component: Checkout,
   validateSearch: (s: Record<string, unknown>) => ({
     waitlist: typeof s.waitlist === "string" ? s.waitlist : undefined,
     cancelled: s.cancelled === "1" || s.cancelled === 1 ? 1 : undefined,
+    ref: typeof s.ref === "string" ? s.ref : undefined,
   }),
 });
 
@@ -43,6 +45,11 @@ function Checkout() {
   const [waitlistBusy, setWaitlistBusy] = useState(false);
   const [waitlistMsg, setWaitlistMsg] = useState<string | null>(null);
   const createSession = useServerFn(createCheckoutSession);
+  const validatePromo = useServerFn(validatePromoCode);
+  const [promoInput, setPromoInput] = useState("");
+  const [promo, setPromo] = useState<{ code: string; discountCents: number } | null>(null);
+  const [promoErr, setPromoErr] = useState<string | null>(null);
+  const [promoBusy, setPromoBusy] = useState(false);
 
   const vendorQ = useQuery({
     enabled: !!cart.vendor_id,
@@ -93,6 +100,14 @@ function Checkout() {
   const slots = slotsQ.data ?? [];
   const discounts = discountsQ.data ?? [];
   const primary = vendor?.brand_primary ?? "#111111";
+
+  // Prefill promo from ?ref= or persisted referral
+  useEffect(() => {
+    if (promoInput) return;
+    const ref = search.ref || (typeof window !== "undefined" ? localStorage.getItem("slotpass.ref") : null);
+    if (ref) setPromoInput(ref);
+    if (search.ref && typeof window !== "undefined") localStorage.setItem("slotpass.ref", search.ref);
+  }, [search.ref]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Only future slots with capacity
   const availableSlots = useMemo(() => {
@@ -151,7 +166,7 @@ function Checkout() {
   }, [priorityAvail]);
 
   // Compute per-item discount for the selected slot
-  const { subtotalCents, discountCents, serviceFeeCents, totalWithFeeCents, commissionCents } = useMemo(() => {
+  const { subtotalCents, discountCents, serviceFeeCents, totalWithFeeCents, commissionCents, promoDiscountCents } = useMemo(() => {
     let subtotal = 0;
     let discount = 0;
     for (const item of cart.items) {
@@ -170,18 +185,21 @@ function Checkout() {
       }
     }
     const fee = vendor?.service_fee_cents ?? 0;
-    const commissionable = subtotal - discount; // vendor commission is on net item revenue, not the platform fee
+    const netAfterSlot = subtotal - discount;
+    const promoD = promo ? Math.min(netAfterSlot, promo.discountCents) : 0;
+    const commissionable = netAfterSlot - promoD;
     const commissionPct = vendor?.commission_pct ?? 0;
-    const commissionCents = Math.round((commissionable * Number(commissionPct)) / 100);
+    const commissionCents = Math.round((Math.max(0, commissionable) * Number(commissionPct)) / 100);
     const priorityUp = priority ? (selectedSlot?.priority_upcharge_cents ?? 0) : 0;
     return {
       subtotalCents: subtotal,
       discountCents: discount,
       serviceFeeCents: fee,
-      totalWithFeeCents: subtotal - discount + fee + priorityUp,
+      totalWithFeeCents: subtotal - discount - promoD + fee + priorityUp,
       commissionCents,
+      promoDiscountCents: promoD,
     };
-  }, [cart.items, discounts, selectedSlot, vendor, priority]);
+  }, [cart.items, discounts, selectedSlot, vendor, priority, promo]);
 
   const seatOk =
     !selectedSlot ||
@@ -232,6 +250,7 @@ function Checkout() {
           customer_phone: phone || null,
           qr_token: qrToken,
           paid_at: new Date().toISOString(),
+          promo_discount_cents: promoDiscountCents,
         })
         .select()
         .single();
@@ -292,6 +311,7 @@ function Checkout() {
           lang,
           isPriority: priority && priorityAvail,
           waitlistEntryId: waitlistOffer ? waitlistOffer.id : null,
+          promoCode: promo?.code ?? null,
         },
       });
       if (!res.url) throw new Error("Stripe returned no checkout URL");
@@ -324,6 +344,34 @@ function Checkout() {
     } finally {
       setWaitlistBusy(false);
     }
+  }
+
+  async function applyPromo() {
+    if (!vendor || !promoInput.trim()) return;
+    setPromoBusy(true);
+    setPromoErr(null);
+    try {
+      const netSubtotal = Math.max(1, subtotalCents - discountCents);
+      const res = await validatePromo({
+        data: {
+          code: promoInput.trim(),
+          vendorId: vendor.id,
+          subtotalCents: netSubtotal,
+          email: email || null,
+        },
+      });
+      setPromo({ code: res.code, discountCents: res.discountCents });
+    } catch (e) {
+      setPromo(null);
+      setPromoErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPromoBusy(false);
+    }
+  }
+  function removePromo() {
+    setPromo(null);
+    setPromoInput("");
+    setPromoErr(null);
   }
 
   if (!cart.vendor_id || cart.items.length === 0) {
@@ -521,10 +569,46 @@ function Checkout() {
         </section>
 
         {/* Totals */}
+        {/* Promo code */}
+        <section className="mt-5">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("promoCode")}</h2>
+          {promo ? (
+            <div className="mt-2 flex items-center justify-between rounded-xl border border-emerald-300/60 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              <span>
+                <span className="font-bold">{promo.code}</span>
+                <span className="ml-2 text-xs">− {formatEUR(promoDiscountCents)}</span>
+              </span>
+              <button onClick={removePromo} className="text-xs font-semibold underline">
+                {t("remove")}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-2 flex gap-2">
+              <input
+                value={promoInput}
+                onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                placeholder={t("promoPlaceholder")}
+                className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              />
+              <button
+                onClick={applyPromo}
+                disabled={promoBusy || !promoInput.trim()}
+                className="rounded-xl border border-border px-3 py-2 text-xs font-bold disabled:opacity-40"
+              >
+                {promoBusy ? t("loading") : t("apply")}
+              </button>
+            </div>
+          )}
+          {promoErr && <div className="mt-1 text-xs text-red-600">{promoErr}</div>}
+        </section>
+
         <section className="mt-5 rounded-2xl border border-border bg-card p-3 text-sm">
           <Row label={t("subtotal")} value={formatEUR(subtotalCents)} />
           {discountCents > 0 && (
             <Row label={`${t("offPeak")} ${t("off")}`} value={`− ${formatEUR(discountCents)}`} />
+          )}
+          {promo && promoDiscountCents > 0 && (
+            <Row label={`${t("promoCode")} ${promo.code}`} value={`− ${formatEUR(promoDiscountCents)}`} />
           )}
           <Row label={t("serviceFee")} value={formatEUR(serviceFeeCents)} />
           {priority && priorityAvail && selectedSlot && (
