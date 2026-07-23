@@ -586,6 +586,7 @@ function VendorDashboard() {
               </ul>
             </div>
           )}
+          {vendor && <DeepAnalyticsCard vendorId={vendor.id} primary={primary} />}
         </section>
 
         {/* Scan / lookup */}
@@ -1103,5 +1104,216 @@ function WaitlistCard({ vendorId }: { vendorId: string }) {
         </ul>
       )}
     </section>
+  );
+}
+// ============================================================
+// Deep analytics: utilization heatmap, peak hours, daypart revenue
+// ============================================================
+type SlotAgg = { date: string; start_time: string; capacity: number; orders_count: number };
+type OrderAgg = { total_cents: number; status: string; slot_id: string };
+
+function DeepAnalyticsCard({ vendorId, primary }: { vendorId: string; primary: string }) {
+  const { t } = useI18n();
+  const [slots30, setSlots30] = useState<SlotAgg[]>([]);
+  const [orders30, setOrders30] = useState<OrderAgg[]>([]);
+  const [slotMap, setSlotMap] = useState<Record<string, SlotAgg>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      setLoading(true);
+      const to = new Date();
+      const from = new Date();
+      from.setDate(from.getDate() - 29);
+      const fromDate = from.toISOString().slice(0, 10);
+      const toDate = to.toISOString().slice(0, 10);
+      const { data: slotRows } = await supabase
+        .from("slots")
+        .select("id,date,start_time,capacity,orders_count")
+        .eq("vendor_id", vendorId)
+        .gte("date", fromDate)
+        .lte("date", toDate);
+      const sList = (slotRows ?? []) as (SlotAgg & { id: string })[];
+      const ids = sList.map((s) => s.id);
+      const map: Record<string, SlotAgg> = {};
+      for (const s of sList) map[s.id] = s;
+      let oList: OrderAgg[] = [];
+      if (ids.length) {
+        const { data: orderRows } = await supabase
+          .from("orders")
+          .select("total_cents,status,slot_id")
+          .eq("vendor_id", vendorId)
+          .in("slot_id", ids)
+          .in("status", ["paid", "collected", "no_show"]);
+        oList = (orderRows ?? []) as OrderAgg[];
+      }
+      if (cancel) return;
+      setSlots30(sList);
+      setSlotMap(map);
+      setOrders30(oList);
+      setLoading(false);
+    })();
+    return () => { cancel = true; };
+  }, [vendorId]);
+
+  const { heatmap, hours, hourly, daypart, hasData } = useMemo(() => {
+    // Determine hour range from slot start_times
+    const hourSet = new Set<number>();
+    for (const s of slots30) hourSet.add(parseInt(s.start_time.slice(0, 2), 10));
+    const hoursArr = Array.from(hourSet).sort((a, b) => a - b);
+    // heat[dow][hour] = { cap, orders }
+    const heat: Record<number, Record<number, { cap: number; ord: number }>> = {};
+    for (let d = 0; d < 7; d++) heat[d] = {};
+    for (const s of slots30) {
+      const dow = new Date(s.date + "T00:00:00").getDay();
+      const h = parseInt(s.start_time.slice(0, 2), 10);
+      const cell = heat[dow][h] ?? { cap: 0, ord: 0 };
+      cell.cap += s.capacity ?? 0;
+      cell.ord += s.orders_count ?? 0;
+      heat[dow][h] = cell;
+    }
+    // Peak hours: total orders per hour
+    const hourlyMap = new Map<number, number>();
+    // Daypart revenue
+    const dp = { morning: 0, lunch: 0, afternoon: 0, evening: 0, night: 0 };
+    for (const o of orders30) {
+      const s = slotMap[o.slot_id];
+      if (!s) continue;
+      const h = parseInt(s.start_time.slice(0, 2), 10);
+      hourlyMap.set(h, (hourlyMap.get(h) ?? 0) + 1);
+      if (h >= 5 && h < 11) dp.morning += o.total_cents;
+      else if (h >= 11 && h < 14) dp.lunch += o.total_cents;
+      else if (h >= 14 && h < 17) dp.afternoon += o.total_cents;
+      else if (h >= 17 && h < 21) dp.evening += o.total_cents;
+      else dp.night += o.total_cents;
+    }
+    const hourlyArr = hoursArr.map((h) => ({ h, count: hourlyMap.get(h) ?? 0 }));
+    return {
+      heatmap: heat,
+      hours: hoursArr,
+      hourly: hourlyArr,
+      daypart: dp,
+      hasData: slots30.length > 0,
+    };
+  }, [slots30, orders30, slotMap]);
+
+  if (loading) {
+    return (
+      <div className="mt-3 rounded-2xl border border-border bg-card p-3 text-xs text-muted-foreground">
+        {t("loading")}
+      </div>
+    );
+  }
+  if (!hasData) {
+    return (
+      <div className="mt-3 rounded-2xl border border-border bg-card p-3 text-xs text-muted-foreground">
+        {t("noAnalytics")}
+      </div>
+    );
+  }
+
+  const dowLabels = [t("dow1"), t("dow2"), t("dow3"), t("dow4"), t("dow5"), t("dow6"), t("dow0")];
+  const dowOrder = [1, 2, 3, 4, 5, 6, 0];
+  const maxHourly = Math.max(1, ...hourly.map((x) => x.count));
+  const dpEntries: Array<{ label: string; cents: number }> = [
+    { label: t("dpMorning"), cents: daypart.morning },
+    { label: t("dpLunch"), cents: daypart.lunch },
+    { label: t("dpAfternoon"), cents: daypart.afternoon },
+    { label: t("dpEvening"), cents: daypart.evening },
+    { label: t("dpNight"), cents: daypart.night },
+  ];
+  const dpMax = Math.max(1, ...dpEntries.map((x) => x.cents));
+
+  return (
+    <>
+      {/* Heatmap */}
+      <div className="mt-3 rounded-2xl border border-border bg-card p-3">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+          {t("utilizationHeatmap")}
+        </div>
+        <div className="mt-2 overflow-x-auto">
+          <table className="text-[10px]">
+            <thead>
+              <tr>
+                <th className="px-1"></th>
+                {hours.map((h) => (
+                  <th key={h} className="px-1 py-0.5 font-mono text-muted-foreground">{String(h).padStart(2, "0")}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {dowOrder.map((dow, i) => (
+                <tr key={dow}>
+                  <td className="pr-1 font-semibold text-muted-foreground">{dowLabels[i]}</td>
+                  {hours.map((h) => {
+                    const cell = heatmap[dow]?.[h];
+                    if (!cell || cell.cap === 0) {
+                      return <td key={h} className="p-0.5"><div className="h-5 w-5 rounded bg-muted/40" /></td>;
+                    }
+                    const util = Math.min(1, cell.ord / cell.cap);
+                    return (
+                      <td key={h} className="p-0.5">
+                        <div
+                          className="h-5 w-5 rounded"
+                          title={`${Math.round(util * 100)}% (${cell.ord}/${cell.cap})`}
+                          style={{ background: primary, opacity: 0.15 + util * 0.85 }}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Peak hours */}
+      <div className="mt-3 rounded-2xl border border-border bg-card p-3">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+          {t("peakHours")}
+        </div>
+        <div className="mt-2 flex items-end gap-1 h-24">
+          {hourly.map(({ h, count }) => (
+            <div key={h} className="flex flex-1 flex-col items-center gap-1">
+              <div className="flex w-full flex-1 items-end">
+                <div
+                  className="w-full rounded-t"
+                  style={{
+                    height: `${(count / maxHourly) * 100}%`,
+                    background: primary,
+                    minHeight: count > 0 ? 2 : 0,
+                  }}
+                  title={`${count}`}
+                />
+              </div>
+              <div className="font-mono text-[9px] text-muted-foreground">{String(h).padStart(2, "0")}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Daypart revenue */}
+      <div className="mt-3 rounded-2xl border border-border bg-card p-3">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+          {t("revenueByDaypart")}
+        </div>
+        <ul className="mt-2 space-y-1.5 text-xs">
+          {dpEntries.map((e) => (
+            <li key={e.label} className="flex items-center gap-2">
+              <span className="w-20 shrink-0 text-muted-foreground">{e.label}</span>
+              <div className="relative h-4 flex-1 overflow-hidden rounded bg-muted">
+                <div
+                  className="h-full rounded"
+                  style={{ width: `${(e.cents / dpMax) * 100}%`, background: primary }}
+                />
+              </div>
+              <span className="w-16 shrink-0 text-right font-semibold tabular-nums">{formatEUR(e.cents)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </>
   );
 }
