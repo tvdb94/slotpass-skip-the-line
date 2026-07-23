@@ -586,6 +586,7 @@ function VendorDashboard() {
               </ul>
             </div>
           )}
+          {vendor && <DeepAnalyticsCard vendorId={vendor.id} primary={primary} />}
         </section>
 
         {/* Scan / lookup */}
