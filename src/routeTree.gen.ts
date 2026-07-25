@@ -9,49 +9,24 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as VendorRouteImport } from './routes/vendor'
-import { Route as OrdersRouteImport } from './routes/orders'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as CheckoutRouteImport } from './routes/checkout'
-import { Route as BecomeVendorRouteImport } from './routes/become-vendor'
-import { Route as AdminRouteImport } from './routes/admin'
-import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SlugRouteImport } from './routes/$slug'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as BecomeVendorRouteImport } from './routes/become-vendor'
+import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as OrdersRouteImport } from './routes/orders'
+import { Route as VendorRouteImport } from './routes/vendor'
 import { Route as OrderCodeRouteImport } from './routes/order.$code'
-import { Route as ApiPublicWebhooksStripeConnectRouteImport } from './routes/api/public/webhooks/stripe-connect'
-import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public/webhooks/stripe'
-import { Route as ApiPublicHooksSendRemindersRouteImport } from './routes/api/public/hooks/send-reminders'
-import { Route as ApiPublicHooksMarkNoShowsRouteImport } from './routes/api/public/hooks/mark-no-shows'
 import { Route as ApiPublicHooksApplyDynamicPricingRouteImport } from './routes/api/public/hooks/apply-dynamic-pricing'
+import { Route as ApiPublicHooksMarkNoShowsRouteImport } from './routes/api/public/hooks/mark-no-shows'
+import { Route as ApiPublicHooksSendRemindersRouteImport } from './routes/api/public/hooks/send-reminders'
+import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public/webhooks/stripe'
+import { Route as ApiPublicWebhooksStripeConnectRouteImport } from './routes/api/public/webhooks/stripe-connect'
 
-const VendorRoute = VendorRouteImport.update({
-  id: '/vendor',
-  path: '/vendor',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OrdersRoute = OrdersRouteImport.update({
-  id: '/orders',
-  path: '/orders',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CheckoutRoute = CheckoutRouteImport.update({
-  id: '/checkout',
-  path: '/checkout',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BecomeVendorRoute = BecomeVendorRouteImport.update({
-  id: '/become-vendor',
-  path: '/become-vendor',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SlugRoute = SlugRouteImport.update({
@@ -59,9 +34,34 @@ const SlugRoute = SlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BecomeVendorRoute = BecomeVendorRouteImport.update({
+  id: '/become-vendor',
+  path: '/become-vendor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrdersRoute = OrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VendorRoute = VendorRouteImport.update({
+  id: '/vendor',
+  path: '/vendor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrderCodeRoute = OrderCodeRouteImport.update({
@@ -69,21 +69,10 @@ const OrderCodeRoute = OrderCodeRouteImport.update({
   path: '/order/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicWebhooksStripeConnectRoute =
-  ApiPublicWebhooksStripeConnectRouteImport.update({
-    id: '/api/public/webhooks/stripe-connect',
-    path: '/api/public/webhooks/stripe-connect',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicWebhooksStripeRoute = ApiPublicWebhooksStripeRouteImport.update({
-  id: '/api/public/webhooks/stripe',
-  path: '/api/public/webhooks/stripe',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicHooksSendRemindersRoute =
-  ApiPublicHooksSendRemindersRouteImport.update({
-    id: '/api/public/hooks/send-reminders',
-    path: '/api/public/hooks/send-reminders',
+const ApiPublicHooksApplyDynamicPricingRoute =
+  ApiPublicHooksApplyDynamicPricingRouteImport.update({
+    id: '/api/public/hooks/apply-dynamic-pricing',
+    path: '/api/public/hooks/apply-dynamic-pricing',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicHooksMarkNoShowsRoute =
@@ -92,10 +81,21 @@ const ApiPublicHooksMarkNoShowsRoute =
     path: '/api/public/hooks/mark-no-shows',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicHooksApplyDynamicPricingRoute =
-  ApiPublicHooksApplyDynamicPricingRouteImport.update({
-    id: '/api/public/hooks/apply-dynamic-pricing',
-    path: '/api/public/hooks/apply-dynamic-pricing',
+const ApiPublicHooksSendRemindersRoute =
+  ApiPublicHooksSendRemindersRouteImport.update({
+    id: '/api/public/hooks/send-reminders',
+    path: '/api/public/hooks/send-reminders',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWebhooksStripeRoute = ApiPublicWebhooksStripeRouteImport.update({
+  id: '/api/public/webhooks/stripe',
+  path: '/api/public/webhooks/stripe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicWebhooksStripeConnectRoute =
+  ApiPublicWebhooksStripeConnectRouteImport.update({
+    id: '/api/public/webhooks/stripe-connect',
+    path: '/api/public/webhooks/stripe-connect',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -218,46 +218,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/vendor': {
-      id: '/vendor'
-      path: '/vendor'
-      fullPath: '/vendor'
-      preLoaderRoute: typeof VendorRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/orders': {
-      id: '/orders'
-      path: '/orders'
-      fullPath: '/orders'
-      preLoaderRoute: typeof OrdersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/checkout': {
-      id: '/checkout'
-      path: '/checkout'
-      fullPath: '/checkout'
-      preLoaderRoute: typeof CheckoutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/become-vendor': {
-      id: '/become-vendor'
-      path: '/become-vendor'
-      fullPath: '/become-vendor'
-      preLoaderRoute: typeof BecomeVendorRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/$slug': {
@@ -267,11 +232,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/become-vendor': {
+      id: '/become-vendor'
+      path: '/become-vendor'
+      fullPath: '/become-vendor'
+      preLoaderRoute: typeof BecomeVendorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/orders': {
+      id: '/orders'
+      path: '/orders'
+      fullPath: '/orders'
+      preLoaderRoute: typeof OrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vendor': {
+      id: '/vendor'
+      path: '/vendor'
+      fullPath: '/vendor'
+      preLoaderRoute: typeof VendorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/order/$code': {
@@ -281,25 +281,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrderCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/webhooks/stripe-connect': {
-      id: '/api/public/webhooks/stripe-connect'
-      path: '/api/public/webhooks/stripe-connect'
-      fullPath: '/api/public/webhooks/stripe-connect'
-      preLoaderRoute: typeof ApiPublicWebhooksStripeConnectRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/webhooks/stripe': {
-      id: '/api/public/webhooks/stripe'
-      path: '/api/public/webhooks/stripe'
-      fullPath: '/api/public/webhooks/stripe'
-      preLoaderRoute: typeof ApiPublicWebhooksStripeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/hooks/send-reminders': {
-      id: '/api/public/hooks/send-reminders'
-      path: '/api/public/hooks/send-reminders'
-      fullPath: '/api/public/hooks/send-reminders'
-      preLoaderRoute: typeof ApiPublicHooksSendRemindersRouteImport
+    '/api/public/hooks/apply-dynamic-pricing': {
+      id: '/api/public/hooks/apply-dynamic-pricing'
+      path: '/api/public/hooks/apply-dynamic-pricing'
+      fullPath: '/api/public/hooks/apply-dynamic-pricing'
+      preLoaderRoute: typeof ApiPublicHooksApplyDynamicPricingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/mark-no-shows': {
@@ -309,11 +295,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksMarkNoShowsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/apply-dynamic-pricing': {
-      id: '/api/public/hooks/apply-dynamic-pricing'
-      path: '/api/public/hooks/apply-dynamic-pricing'
-      fullPath: '/api/public/hooks/apply-dynamic-pricing'
-      preLoaderRoute: typeof ApiPublicHooksApplyDynamicPricingRouteImport
+    '/api/public/hooks/send-reminders': {
+      id: '/api/public/hooks/send-reminders'
+      path: '/api/public/hooks/send-reminders'
+      fullPath: '/api/public/hooks/send-reminders'
+      preLoaderRoute: typeof ApiPublicHooksSendRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webhooks/stripe': {
+      id: '/api/public/webhooks/stripe'
+      path: '/api/public/webhooks/stripe'
+      fullPath: '/api/public/webhooks/stripe'
+      preLoaderRoute: typeof ApiPublicWebhooksStripeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webhooks/stripe-connect': {
+      id: '/api/public/webhooks/stripe-connect'
+      path: '/api/public/webhooks/stripe-connect'
+      fullPath: '/api/public/webhooks/stripe-connect'
+      preLoaderRoute: typeof ApiPublicWebhooksStripeConnectRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
