@@ -14,7 +14,10 @@ type Vendor = {
   slug: string;
   name: string;
   brand_primary: string | null;
+  stripe_account_id: string | null;
   stripe_charges_enabled: boolean;
+  stripe_payouts_enabled: boolean;
+  stripe_details_submitted: boolean;
   dynamic_pricing_enabled: boolean;
 };
 type Slot = {
@@ -60,6 +63,27 @@ type AnalyticsRow = {
   id: string;
 };
 type TopItem = { name: string; qty: number; revenue_cents: number };
+type Payout = {
+  id: string;
+  amount_cents: number;
+  currency: string;
+  status: string;
+  arrival_date: number;
+  created: number;
+};
+type Earnings = {
+  summary: {
+    orderCount: number;
+    grossCents: number;
+    platformFeeCents: number;
+    commissionCents: number;
+    totalFeesCents: number;
+    netToVendorCents: number;
+  };
+  payouts: Payout[];
+  hasConnectedAccount: boolean;
+};
+type RangePreset = "7d" | "30d" | "month" | "custom";
 
 function VendorDashboard() {
   const { t, lang } = useI18n();
@@ -74,6 +98,13 @@ function VendorDashboard() {
   const [analytics, setAnalytics] = useState<AnalyticsRow[]>([]);
   const [topItems, setTopItems] = useState<TopItem[]>([]);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  // Stripe Connect + earnings (edge-fn backed; the web app holds no Stripe secret).
+  const [connectBusy, setConnectBusy] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [earnings, setEarnings] = useState<Earnings | null>(null);
+  const [rangePreset, setRangePreset] = useState<RangePreset>("7d");
+  const [customFrom, setCustomFrom] = useState<string>("");
+  const [customTo, setCustomTo] = useState<string>("");
 
   // Bootstrap: resolve current user -> staffed vendor -> data.
   // get_my_vendor() is a SECURITY DEFINER read scoped to is_vendor_staff(id); it
@@ -132,6 +163,77 @@ function VendorDashboard() {
       supabase.removeChannel(ch);
     };
   }, [vendor]);
+
+  // Stripe Connect: start/continue onboarding via the edge fn (no server secret in the web app).
+  // The browser passes its own https origin so Stripe returns to THIS deploy (B24).
+  async function connectStripe() {
+    if (!vendor) return;
+    setConnectBusy(true);
+    setConnectError(null);
+    const { data, error } = await supabase.functions.invoke("connect-onboarding-link", {
+      body: { vendorId: vendor.id, origin: window.location.origin },
+    });
+    if (error || !data?.url) {
+      setConnectError(error?.message ?? "Stripe error");
+      setConnectBusy(false);
+      return;
+    }
+    window.location.href = data.url as string;
+  }
+
+  // On return from Stripe onboarding (?connect=return), refresh the capability flags via
+  // connect-status; if the onboarding link expired (?connect=refresh), regenerate it.
+  useEffect(() => {
+    if (!vendor) return;
+    const url = new URL(window.location.href);
+    const connect = url.searchParams.get("connect");
+    if (!connect) return;
+    (async () => {
+      if (connect === "return") {
+        const { data } = await supabase.functions.invoke("connect-status", {
+          body: { vendorId: vendor.id },
+        });
+        if (data?.updated) {
+          setVendor((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  stripe_charges_enabled: !!data.chargesEnabled,
+                  stripe_payouts_enabled: !!data.payoutsEnabled,
+                  stripe_details_submitted: !!data.detailsSubmitted,
+                }
+              : prev,
+          );
+        }
+        url.searchParams.delete("connect");
+        window.history.replaceState({}, "", url.toString());
+      } else if (connect === "refresh") {
+        const { data } = await supabase.functions.invoke("connect-onboarding-link", {
+          body: { vendorId: vendor.id, origin: window.location.origin },
+        });
+        if (data?.url) window.location.href = data.url as string;
+      }
+    })();
+  }, [vendor]);
+
+  // Earnings summary + payout history for the selected range (vendor-earnings edge fn).
+  useEffect(() => {
+    if (!vendor) return;
+    const [from, to] = resolveRange(rangePreset, customFrom, customTo);
+    if (!from || !to) return;
+    let cancel = false;
+    supabase.functions
+      .invoke("vendor-earnings", { body: { vendorId: vendor.id, from, to } })
+      .then(({ data }) => {
+        if (!cancel) setEarnings((data as Earnings) ?? null);
+      })
+      .catch(() => {
+        if (!cancel) setEarnings(null);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [vendor, rangePreset, customFrom, customTo]);
 
   async function reloadSlots(vendorId: string) {
     const today = new Date().toISOString().slice(0, 10);
@@ -482,6 +584,157 @@ function VendorDashboard() {
             );
           })()}
 
+        {/* Stripe Connect status */}
+        {vendor && (
+          <section className="mt-4 rounded-2xl border border-border bg-card p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  {t("payouts")}
+                </div>
+                <div className="mt-1 text-sm font-semibold">
+                  {vendor.stripe_charges_enabled
+                    ? t("stripeConnected")
+                    : vendor.stripe_account_id
+                      ? t("stripeReview")
+                      : "Stripe"}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">{t("stripeConnectHint")}</p>
+              </div>
+              <div className="flex shrink-0 flex-col gap-1">
+                {!vendor.stripe_account_id && (
+                  <button
+                    onClick={connectStripe}
+                    disabled={connectBusy}
+                    className="rounded-full px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                    style={{ background: primary }}
+                  >
+                    {t("connectStripe")}
+                  </button>
+                )}
+                {vendor.stripe_account_id && !vendor.stripe_charges_enabled && (
+                  <button
+                    onClick={connectStripe}
+                    disabled={connectBusy}
+                    className="rounded-full px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                    style={{ background: primary }}
+                  >
+                    {t("continueOnboarding")}
+                  </button>
+                )}
+              </div>
+            </div>
+            {connectError && (
+              <div className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-700">
+                {connectError}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Earnings (authoritative — from the vendor-earnings edge fn incl. Stripe payouts) */}
+        <section className="mt-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {t("earnings")}
+            </h2>
+            <div className="flex gap-1">
+              {(["7d", "30d", "month", "custom"] as RangePreset[]).map((k) => (
+                <button
+                  key={k}
+                  onClick={() => setRangePreset(k)}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    rangePreset === k
+                      ? "text-white"
+                      : "border border-border bg-card text-muted-foreground"
+                  }`}
+                  style={rangePreset === k ? { background: primary } : undefined}
+                >
+                  {k === "7d"
+                    ? t("last7Days")
+                    : k === "30d"
+                      ? t("last30Days")
+                      : k === "month"
+                        ? t("thisMonth")
+                        : t("custom")}
+                </button>
+              ))}
+            </div>
+          </div>
+          {rangePreset === "custom" && (
+            <div className="mt-2 flex items-center gap-2 text-xs">
+              <label className="flex items-center gap-1">
+                <span className="text-muted-foreground">{t("from")}</span>
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="rounded border border-border bg-background px-2 py-1"
+                />
+              </label>
+              <label className="flex items-center gap-1">
+                <span className="text-muted-foreground">{t("to")}</span>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="rounded border border-border bg-background px-2 py-1"
+                />
+              </label>
+            </div>
+          )}
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <StatCard
+              label={t("grossSales")}
+              value={formatEUR(earnings?.summary.grossCents ?? 0)}
+            />
+            <StatCard
+              label={t("commission")}
+              value={formatEUR(earnings?.summary.commissionCents ?? 0)}
+            />
+            <StatCard
+              label={t("slotpassFees")}
+              value={formatEUR(earnings?.summary.totalFeesCents ?? 0)}
+            />
+            <StatCard
+              label={t("netToVendor")}
+              value={formatEUR(earnings?.summary.netToVendorCents ?? 0)}
+              accent={primary}
+            />
+          </div>
+          <div className="mt-3 rounded-2xl border border-border bg-card p-3">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              {t("payoutHistory")}
+            </div>
+            {!earnings?.hasConnectedAccount ? (
+              <div className="mt-2 text-xs text-muted-foreground">{t("stripeConnectHint")}</div>
+            ) : earnings.payouts.length === 0 ? (
+              <div className="mt-2 text-xs text-muted-foreground">{t("noPayouts")}</div>
+            ) : (
+              <ul className="mt-1 divide-y divide-border text-sm">
+                {earnings.payouts.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between gap-3 py-1.5">
+                    <div className="min-w-0">
+                      <div className="font-semibold">{formatEUR(p.amount_cents)}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {new Date(p.arrival_date * 1000).toLocaleDateString(
+                          lang === "nl" ? "nl-NL" : "en-GB",
+                          { day: "2-digit", month: "short", year: "numeric" },
+                        )}
+                      </div>
+                    </div>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${payoutBadge(p.status)}`}
+                    >
+                      {payoutLabel(p.status, t)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
         {/* Analytics */}
         <section className="mt-4">
           <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -809,6 +1062,50 @@ function StatCard({ label, value, accent }: { label: string; value: string; acce
       </div>
     </div>
   );
+}
+
+// Earnings date range → [from, to] as YYYY-MM-DD (the vendor-earnings edge fn contract).
+function resolveRange(preset: RangePreset, customFrom: string, customTo: string): [string, string] {
+  if (preset === "custom") return [customFrom, customTo];
+  const today = new Date();
+  const to = today.toISOString().slice(0, 10);
+  const from = new Date(today);
+  if (preset === "7d") from.setDate(today.getDate() - 6);
+  else if (preset === "30d") from.setDate(today.getDate() - 29);
+  else if (preset === "month") from.setDate(1);
+  return [from.toISOString().slice(0, 10), to];
+}
+
+function payoutBadge(status: string): string {
+  switch (status) {
+    case "paid":
+      return "bg-emerald-100 text-emerald-700";
+    case "in_transit":
+      return "bg-sky-100 text-sky-700";
+    case "pending":
+      return "bg-amber-100 text-amber-700";
+    case "failed":
+      return "bg-red-100 text-red-700";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+}
+
+function payoutLabel(status: string, t: ReturnType<typeof useI18n>["t"]): string {
+  switch (status) {
+    case "paid":
+      return t("paidOut");
+    case "in_transit":
+      return t("inTransitPayout");
+    case "pending":
+      return t("pendingPayout");
+    case "failed":
+      return t("failedPayout");
+    case "canceled":
+      return t("canceledPayout");
+    default:
+      return status;
+  }
 }
 
 type PricingRule = {
