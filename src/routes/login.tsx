@@ -2,13 +2,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Header } from "@/components/Header";
 import { useI18n } from "@/lib/i18n";
-import { signInDemo } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
       { title: "Inloggen — SlotPass" },
-      { name: "description", content: "Log in met een demo klant- of verkoperaccount om SlotPass te proberen." },
+      { name: "description", content: "Log in op de SlotPass back-office." },
     ],
   }),
   component: LoginPage,
@@ -17,19 +17,53 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const [busy, setBusy] = useState<"customer" | "vendor" | null>(null);
+  const [step, setStep] = useState<"email" | "code">("email");
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function loginAs(kind: "customer" | "vendor") {
-    setBusy(kind);
+  async function sendCode(e: React.FormEvent) {
+    e.preventDefault();
+    const addr = email.trim().toLowerCase();
+    if (!addr) return;
+    setBusy(true);
     setError(null);
     try {
-      await signInDemo(kind);
-      navigate({ to: kind === "vendor" ? "/" : "/" });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      // Email one-time code (6 digits — project mailer_otp_length=6, templates use {{ .Token }}).
+      const { error: err } = await supabase.auth.signInWithOtp({
+        email: addr,
+        // Back-office = pre-provisioned staff/admin only. A stranger's email just
+        // fails (no account minted, no OTP-email abuse). 8b adds explicit vendor signup.
+        options: { shouldCreateUser: false },
+      });
+      if (err) throw err;
+      setStep("code");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setBusy(null);
+      setBusy(false);
+    }
+  }
+
+  async function verifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    const token = code.trim();
+    if (!token) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { error: err } = await supabase.auth.verifyOtp({
+        email: email.trim().toLowerCase(),
+        token,
+        type: "email",
+      });
+      if (err) throw err;
+      navigate({ to: "/" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -37,45 +71,76 @@ function LoginPage() {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="mx-auto max-w-md px-4 py-10">
-        <h1 className="text-3xl font-black tracking-tight">{t("demoLoginTitle")}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{t("demoLoginSubtitle")}</p>
+        <h1 className="text-3xl font-black tracking-tight">{t("signIn")}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{t("loginSubtitle")}</p>
 
-        <div className="mt-6 grid gap-3">
-          <button
-            onClick={() => loginAs("customer")}
-            disabled={busy !== null}
-            className="group flex items-center justify-between rounded-2xl border-2 border-border bg-card p-5 text-left transition hover:border-foreground disabled:opacity-60"
-          >
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("customer")}</div>
-              <div className="mt-1 text-lg font-bold">{t("demoCustomer")}</div>
-              <div className="mt-1 text-sm text-muted-foreground">{t("customerBlurb")}</div>
-            </div>
-            <span className="text-2xl">{busy === "customer" ? "…" : "→"}</span>
-          </button>
+        {step === "email" ? (
+          <form onSubmit={sendCode} className="mt-6 grid gap-3">
+            <label className="grid gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {t("emailLabel")}
+              </span>
+              <input
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@business.com"
+                className="rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={busy}
+              className="rounded-full bg-foreground px-4 py-2.5 text-sm font-semibold text-background disabled:opacity-60"
+            >
+              {busy ? "…" : t("sendCode")}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={verifyCode} className="mt-6 grid gap-3">
+            <p className="text-sm text-muted-foreground">
+              {t("codeSentTo")} <span className="font-semibold text-foreground">{email}</span>
+            </p>
+            <label className="grid gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {t("codeLabel")}
+              </span>
+              <input
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="123456"
+                className="rounded-xl border border-border bg-background px-3 py-2 text-center text-lg font-mono tracking-[0.4em] outline-none focus:border-foreground"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={busy || code.length < 6}
+              className="rounded-full bg-foreground px-4 py-2.5 text-sm font-semibold text-background disabled:opacity-60"
+            >
+              {busy ? "…" : t("verifyCode")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStep("email");
+                setCode("");
+                setError(null);
+              }}
+              className="text-center text-sm font-medium text-muted-foreground underline"
+            >
+              {t("useAnotherEmail")}
+            </button>
+          </form>
+        )}
 
-          <button
-            onClick={() => loginAs("vendor")}
-            disabled={busy !== null}
-            className="group flex items-center justify-between rounded-2xl border-2 border-border bg-card p-5 text-left transition hover:border-foreground disabled:opacity-60"
-          >
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("vendor")}</div>
-              <div className="mt-1 text-lg font-bold">{t("demoVendor")}</div>
-              <div className="mt-1 text-sm text-muted-foreground">{t("vendorBlurb")}</div>
-            </div>
-            <span className="text-2xl">{busy === "vendor" ? "…" : "→"}</span>
-          </button>
-        </div>
-
-        {error && <p className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-
-        <button
-          onClick={() => navigate({ to: "/" })}
-          className="mt-6 w-full text-center text-sm font-medium text-muted-foreground underline"
-        >
-          {t("browseWithoutLogin")}
-        </button>
+        {error && (
+          <p className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>
+        )}
       </main>
     </div>
   );

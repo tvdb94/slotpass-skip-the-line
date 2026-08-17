@@ -19,16 +19,31 @@ export function Header() {
       if (cancel) return;
       const u = data.user;
       setSignedIn(!!u);
-      if (!u) { setIsStaff(false); setIsAdmin(false); return; }
-      const { data: s } = await supabase.from("staff").select("vendor_id").eq("auth_user_id", u.id).maybeSingle();
+      if (!u) {
+        setIsStaff(false);
+        setIsAdmin(false);
+        return;
+      }
+      const { data: s } = await supabase
+        .from("staff")
+        .select("vendor_id")
+        .eq("auth_user_id", u.id)
+        .maybeSingle();
       if (!cancel) setIsStaff(!!s);
       const { data: role } = await supabase
-        .from("user_roles").select("role").eq("user_id", u.id).eq("role", "admin").maybeSingle();
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", u.id)
+        .eq("role", "admin")
+        .maybeSingle();
       if (!cancel) setIsAdmin(!!role);
     };
     check();
     const { data: sub } = supabase.auth.onAuthStateChange(() => check());
-    return () => { cancel = true; sub.subscription.unsubscribe(); };
+    return () => {
+      cancel = true;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   async function signOut() {
@@ -39,7 +54,9 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2">
-          <div className="grid h-8 w-8 place-items-center rounded-xl bg-foreground text-background font-black">S</div>
+          <div className="grid h-8 w-8 place-items-center rounded-xl bg-foreground text-background font-black">
+            S
+          </div>
           <span className="text-lg font-black tracking-tight">{t("appName")}</span>
         </Link>
         <div className="flex items-center gap-2">
@@ -66,14 +83,6 @@ export function Header() {
               className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold"
             >
               {t("dashboard")}
-            </Link>
-          )}
-          {signedIn && !isStaff && (
-            <Link
-              to="/orders"
-              className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold"
-            >
-              {t("myOrders")}
             </Link>
           )}
           {!isStaff && (

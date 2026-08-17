@@ -33,9 +33,10 @@ export class AppErrorBoundary extends Component<Props, State> {
     const { error } = this.state;
     if (!error) return this.props.children;
 
-    const isChunkError = /Loading chunk|Importing a module script failed|Failed to fetch dynamically imported module/i.test(
-      error.message ?? ""
-    );
+    const isChunkError =
+      /Loading chunk|Importing a module script failed|Failed to fetch dynamically imported module/i.test(
+        error.message ?? "",
+      );
 
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
