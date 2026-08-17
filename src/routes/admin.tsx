@@ -50,20 +50,28 @@ type ReviewRow = {
 };
 
 function slugify(s: string) {
-  return s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+  return s
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 60);
 }
 
 function draftSummary(a: Application): string | null {
   const menu = Array.isArray(a.menu_draft) ? (a.menu_draft as unknown[]).length : 0;
-  const s = a.slots_draft && typeof a.slots_draft === "object" ? (a.slots_draft as any) : null;
+  const s =
+    a.slots_draft && typeof a.slots_draft === "object"
+      ? (a.slots_draft as Record<string, unknown>)
+      : null;
   const days = s && Array.isArray(s.days) ? s.days.length : 0;
   let slotsPerDay = 0;
   if (s && typeof s.start === "string" && typeof s.end === "string") {
     const [sh, sm] = s.start.split(":").map(Number);
     const [eh, em] = s.end.split(":").map(Number);
     const interval = Number(s.interval_min) || 15;
-    const mins = (eh * 60 + em) - (sh * 60 + sm);
+    const mins = eh * 60 + em - (sh * 60 + sm);
     if (mins > 0 && interval > 0) slotsPerDay = Math.floor(mins / interval);
   }
   if (!menu && !slotsPerDay) return null;
@@ -91,21 +99,35 @@ function AdminPage() {
     (async () => {
       const { data: userData } = await supabase.auth.getUser();
       const u = userData.user;
-      if (!u) { if (!cancel) { setLoading(false); setIsAdmin(false); } return; }
+      if (!u) {
+        if (!cancel) {
+          setLoading(false);
+          setIsAdmin(false);
+        }
+        return;
+      }
       const { data: role } = await supabase
-        .from("user_roles").select("role").eq("user_id", u.id).eq("role", "admin").maybeSingle();
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", u.id)
+        .eq("role", "admin")
+        .maybeSingle();
       if (cancel) return;
       setIsAdmin(!!role);
       if (role) await Promise.all([reload(), reloadVendors(), reloadReviews()]);
       setLoading(false);
     })();
-    return () => { cancel = true; };
+    return () => {
+      cancel = true;
+    };
   }, []);
 
   async function reload() {
     const { data } = await supabase
       .from("vendor_applications")
-      .select("id,business_name,contact_name,contact_email,phone,cuisine,address,description,status,review_notes,created_at,proposed_slug,brand_primary,menu_draft,slots_draft")
+      .select(
+        "id,business_name,contact_name,contact_email,phone,cuisine,address,description,status,review_notes,created_at,proposed_slug,brand_primary,menu_draft,slots_draft",
+      )
       .order("created_at", { ascending: false })
       .limit(100);
     setApps((data ?? []) as Application[]);
@@ -187,7 +209,11 @@ function AdminPage() {
       _slug: slug.trim(),
     });
     setBusyId(null);
-    if (error) { setFlash(error.message); setTimeout(() => setFlash(null), 3000); return; }
+    if (error) {
+      setFlash(error.message);
+      setTimeout(() => setFlash(null), 3000);
+      return;
+    }
     setFlash(`✓ ${a.business_name}`);
     setTimeout(() => setFlash(null), 1800);
     reload();
@@ -201,7 +227,11 @@ function AdminPage() {
       _notes: notes,
     });
     setBusyId(null);
-    if (error) { setFlash(error.message); setTimeout(() => setFlash(null), 3000); return; }
+    if (error) {
+      setFlash(error.message);
+      setTimeout(() => setFlash(null), 3000);
+      return;
+    }
     reload();
   }
 
@@ -209,7 +239,9 @@ function AdminPage() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="mx-auto max-w-3xl px-4 pt-6 text-sm text-muted-foreground">{t("loading")}</div>
+        <div className="mx-auto max-w-3xl px-4 pt-6 text-sm text-muted-foreground">
+          {t("loading")}
+        </div>
       </div>
     );
   }
@@ -220,7 +252,10 @@ function AdminPage() {
         <Header />
         <div className="mx-auto max-w-md px-4 pt-10 text-center">
           <p className="text-sm text-muted-foreground">{t("notAuthorized")}</p>
-          <Link to="/" className="mt-4 inline-block rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background">
+          <Link
+            to="/"
+            className="mt-4 inline-block rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background"
+          >
             {t("backToHome")}
           </Link>
         </div>
@@ -237,11 +272,13 @@ function AdminPage() {
       <div className="mx-auto max-w-3xl px-4 pt-4">
         <h1 className="text-2xl font-black">{t("admin")}</h1>
         <div className="mt-3 flex gap-1 overflow-x-auto rounded-full bg-muted p-1 text-xs font-bold">
-          {([
-            ["apps", t("adminTabApplications")],
-            ["vendors", t("adminTabVendors")],
-            ["reviews", t("adminTabReviews")],
-          ] as const).map(([k, label]) => (
+          {(
+            [
+              ["apps", t("adminTabApplications")],
+              ["vendors", t("adminTabVendors")],
+              ["reviews", t("adminTabReviews")],
+            ] as const
+          ).map(([k, label]) => (
             <button
               key={k}
               onClick={() => setTab(k)}
@@ -251,58 +288,77 @@ function AdminPage() {
             </button>
           ))}
         </div>
-        {flash && <div className="mt-3 rounded-xl bg-muted px-3 py-2 text-xs font-semibold">{flash}</div>}
+        {flash && (
+          <div className="mt-3 rounded-xl bg-muted px-3 py-2 text-xs font-semibold">{flash}</div>
+        )}
 
         {tab === "apps" && (
-        <section className="mt-4">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("pending")}</h2>
-          {pending.length === 0 ? (
-            <div className="mt-2 rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              {t("noPending")}
-            </div>
-          ) : (
-            <ul className="mt-2 space-y-2">
-              {pending.map((a) => (
-                <li key={a.id} className="rounded-2xl border border-border bg-card p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 font-bold">
-                        {a.brand_primary && (
-                          <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: a.brand_primary }} />
-                        )}
-                        {a.business_name}
-                      </div>
-                      <div className="text-xs text-muted-foreground">{a.cuisine}{a.address ? ` · ${a.address}` : ""}</div>
-                      <div className="mt-1 text-xs">{a.contact_name} · {a.contact_email}{a.phone ? ` · ${a.phone}` : ""}</div>
-                      {a.description && <p className="mt-2 text-xs text-muted-foreground">{a.description}</p>}
-                      {(() => { const s = draftSummary(a); return s ? (
-                        <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          wizard · {s}{a.proposed_slug ? ` · /${a.proposed_slug}` : ""}
+          <section className="mt-4">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {t("pending")}
+            </h2>
+            {pending.length === 0 ? (
+              <div className="mt-2 rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                {t("noPending")}
+              </div>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {pending.map((a) => (
+                  <li key={a.id} className="rounded-2xl border border-border bg-card p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 font-bold">
+                          {a.brand_primary && (
+                            <span
+                              className="inline-block h-3 w-3 rounded-full"
+                              style={{ backgroundColor: a.brand_primary }}
+                            />
+                          )}
+                          {a.business_name}
                         </div>
-                      ) : null; })()}
+                        <div className="text-xs text-muted-foreground">
+                          {a.cuisine}
+                          {a.address ? ` · ${a.address}` : ""}
+                        </div>
+                        <div className="mt-1 text-xs">
+                          {a.contact_name} · {a.contact_email}
+                          {a.phone ? ` · ${a.phone}` : ""}
+                        </div>
+                        {a.description && (
+                          <p className="mt-2 text-xs text-muted-foreground">{a.description}</p>
+                        )}
+                        {(() => {
+                          const s = draftSummary(a);
+                          return s ? (
+                            <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              wizard · {s}
+                              {a.proposed_slug ? ` · /${a.proposed_slug}` : ""}
+                            </div>
+                          ) : null;
+                        })()}
+                      </div>
+                      <div className="flex shrink-0 flex-col gap-1">
+                        <button
+                          disabled={busyId === a.id}
+                          onClick={() => approve(a)}
+                          className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                        >
+                          {t("approve")}
+                        </button>
+                        <button
+                          disabled={busyId === a.id}
+                          onClick={() => reject(a)}
+                          className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                        >
+                          {t("reject")}
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex shrink-0 flex-col gap-1">
-                      <button
-                        disabled={busyId === a.id}
-                        onClick={() => approve(a)}
-                        className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
-                      >
-                        {t("approve")}
-                      </button>
-                      <button
-                        disabled={busyId === a.id}
-                        onClick={() => reject(a)}
-                        className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
-                      >
-                        {t("reject")}
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         )}
 
         {tab === "apps" && past.length > 0 && (
@@ -312,7 +368,10 @@ function AdminPage() {
             </h2>
             <ul className="mt-2 space-y-1">
               {past.map((a) => (
-                <li key={a.id} className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-1.5 text-xs">
+                <li
+                  key={a.id}
+                  className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-1.5 text-xs"
+                >
                   <span className="truncate font-semibold">{a.business_name}</span>
                   <span className={a.status === "approved" ? "text-emerald-700" : "text-red-700"}>
                     {a.status === "approved" ? t("approved") : t("rejected")}
@@ -349,21 +408,30 @@ function AdminPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 font-bold">
                         {v.brand_primary && (
-                          <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: v.brand_primary }} />
+                          <span
+                            className="inline-block h-3 w-3 rounded-full"
+                            style={{ backgroundColor: v.brand_primary }}
+                          />
                         )}
-                        <Link to="/$slug" params={{ slug: v.slug }} className="hover:underline">{v.name}</Link>
+                        <span>{v.name}</span>
                         {v.is_featured && (
-                          <span className="rounded-full bg-amber-100 px-1.5 text-[10px] font-bold uppercase text-amber-800">★ {t("featured")}</span>
+                          <span className="rounded-full bg-amber-100 px-1.5 text-[10px] font-bold uppercase text-amber-800">
+                            ★ {t("featured")}
+                          </span>
                         )}
                         {!v.is_active && (
-                          <span className="rounded-full bg-red-100 px-1.5 text-[10px] font-bold uppercase text-red-800">off</span>
+                          <span className="rounded-full bg-red-100 px-1.5 text-[10px] font-bold uppercase text-red-800">
+                            off
+                          </span>
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {v.cuisine} · /{v.slug} · ★ {v.rating ?? "—"} ({v.rating_count ?? 0})
                       </div>
                       <div className="mt-2 flex items-center gap-1.5">
-                        <label className="text-[11px] font-semibold text-muted-foreground">{t("city")}</label>
+                        <label className="text-[11px] font-semibold text-muted-foreground">
+                          {t("city")}
+                        </label>
                         <input
                           value={cityDraft[v.id] ?? ""}
                           onChange={(e) => setCityDraft({ ...cityDraft, [v.id]: e.target.value })}
@@ -411,20 +479,32 @@ function AdminPage() {
             ) : (
               <ul className="space-y-2">
                 {reviews.map((r) => (
-                  <li key={r.id} className={`rounded-2xl border border-border bg-card p-3 ${r.is_hidden ? "opacity-60" : ""}`}>
+                  <li
+                    key={r.id}
+                    className={`rounded-2xl border border-border bg-card p-3 ${r.is_hidden ? "opacity-60" : ""}`}
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 text-sm font-bold">
-                          <span>{"★".repeat(r.rating)}<span className="text-muted-foreground">{"★".repeat(5 - r.rating)}</span></span>
-                          {r.vendors && (
-                            <Link to="/$slug" params={{ slug: r.vendors.slug }} className="hover:underline">{r.vendors.name}</Link>
-                          )}
+                          <span>
+                            {"★".repeat(r.rating)}
+                            <span className="text-muted-foreground">
+                              {"★".repeat(5 - r.rating)}
+                            </span>
+                          </span>
+                          {r.vendors && <span>{r.vendors.name}</span>}
                           {r.is_hidden && (
-                            <span className="rounded-full bg-muted px-1.5 text-[10px] font-bold uppercase text-muted-foreground">{t("hiddenReview")}</span>
+                            <span className="rounded-full bg-muted px-1.5 text-[10px] font-bold uppercase text-muted-foreground">
+                              {t("hiddenReview")}
+                            </span>
                           )}
                         </div>
-                        {r.comment && <p className="mt-1 text-xs text-muted-foreground">{r.comment}</p>}
-                        <div className="mt-1 text-[10px] text-muted-foreground">{new Date(r.created_at).toLocaleString()}</div>
+                        {r.comment && (
+                          <p className="mt-1 text-xs text-muted-foreground">{r.comment}</p>
+                        )}
+                        <div className="mt-1 text-[10px] text-muted-foreground">
+                          {new Date(r.created_at).toLocaleString()}
+                        </div>
                       </div>
                       <div className="flex shrink-0 flex-col gap-1">
                         <button

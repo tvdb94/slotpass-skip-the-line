@@ -12,7 +12,6 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { LanguageProvider } from "@/lib/i18n";
-import { CartProvider } from "@/lib/cart";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { registerServiceWorker } from "@/lib/pwa";
 
@@ -82,10 +81,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "SlotPass — Bestel vooruit, sla de rij over" },
-      { name: "description", content: "SlotPass is een pickup-marktplaats. Pre-order, kies je 15-minuten slot en pick-up met QR." },
+      {
+        name: "description",
+        content:
+          "SlotPass is een pickup-marktplaats. Pre-order, kies je 15-minuten slot en pick-up met QR.",
+      },
       { name: "author", content: "SlotPass" },
       { property: "og:title", content: "SlotPass — Bestel vooruit, sla de rij over" },
-      { property: "og:description", content: "Pickup-marktplaats: pre-order, kies je slot en pick-up met QR." },
+      {
+        property: "og:description",
+        content: "Pickup-marktplaats: pre-order, kies je slot en pick-up met QR.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "theme-color", content: "#FF5A3C" },
@@ -133,12 +139,10 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
-        <CartProvider>
-          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <AppErrorBoundary>
-            <Outlet />
-          </AppErrorBoundary>
-        </CartProvider>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <AppErrorBoundary>
+          <Outlet />
+        </AppErrorBoundary>
       </LanguageProvider>
     </QueryClientProvider>
   );

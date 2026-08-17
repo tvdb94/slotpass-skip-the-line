@@ -17,6 +17,18 @@ const dict = {
     customerBlurb: "Ontdek zaken, bestel vooruit en pick-up met QR.",
     vendorBlurb: "Open het dashboard en beheer je zaak.",
     browseWithoutLogin: "Verder zonder inloggen",
+    loginSubtitle: "Log in op de SlotPass back-office met je e-mailadres.",
+    emailLabel: "E-mailadres",
+    sendCode: "Stuur code",
+    codeSentTo: "We hebben een 6-cijferige code gestuurd naar",
+    codeLabel: "Voer de 6-cijferige code in",
+    verifyCode: "Verifieer",
+    useAnotherEmail: "Ander e-mailadres gebruiken",
+    backoffice: "SlotPass back-office",
+    backofficeHint: "Beheer je zaak, keur aanvragen goed of meld je aan als verkoper.",
+    backofficeDashboardHint: "Beheer slots, menu en bestellingen.",
+    backofficeAdminHint: "Keur verkoper-aanvragen goed en beheer reviews.",
+    backofficeApplyHint: "Zet je zaak op SlotPass.",
     currentLocation: "Amsterdam Centrum",
     changeLocation: "Wijzig",
     list: "Lijst",
@@ -122,7 +134,8 @@ const dict = {
     aboutBusiness: "Korte omschrijving",
     submitApplication: "Aanvraag versturen",
     applicationSubmitted: "Bedankt! Je aanvraag is verzonden.",
-    applicationSubmittedDetail: "We beoordelen alle aanvragen handmatig en nemen zo snel mogelijk contact op.",
+    applicationSubmittedDetail:
+      "We beoordelen alle aanvragen handmatig en nemen zo snel mogelijk contact op.",
     wizardStep: "Stap",
     wizardOf: "van",
     wizardNext: "Volgende",
@@ -216,7 +229,8 @@ const dict = {
     stripeReview: "In review bij Stripe",
     openStripeDashboard: "Open Stripe dashboard",
     stripeNotAcceptingYet: "Deze zaak accepteert nog geen betalingen.",
-    stripeConnectHint: "Verkopers ontvangen betalingen direct op hun eigen Stripe account. SlotPass houdt alleen de servicekosten en commissie in.",
+    stripeConnectHint:
+      "Verkopers ontvangen betalingen direct op hun eigen Stripe account. SlotPass houdt alleen de servicekosten en commissie in.",
     earnings: "Verdiensten",
     dateRange: "Periode",
     last7Days: "Laatste 7 dagen",
@@ -237,10 +251,12 @@ const dict = {
     canceledPayout: "Geannuleerd",
     orderPending: "Betaling wordt verwerkt…",
     orderPendingHint: "Deze pagina ververst automatisch zodra Stripe je betaling bevestigt.",
-    offlineTicket: "Je bent offline — dit ticket is bewaard op je toestel. Toon de QR-code bij pickup.",
+    offlineTicket:
+      "Je bent offline — dit ticket is bewaard op je toestel. Toon de QR-code bij pickup.",
     installApp: "Installeer app",
     dynamicPricing: "Dynamische prijzen",
-    dynamicPricingHint: "Kort voor pickup krijgen lege slots automatisch korting om vraag te sturen.",
+    dynamicPricingHint:
+      "Kort voor pickup krijgen lege slots automatisch korting om vraag te sturen.",
     pricingOn: "Aan",
     pricingOff: "Uit",
     ifWithin: "Als binnen",
@@ -305,6 +321,18 @@ const dict = {
     customerBlurb: "Discover vendors, pre-order, and pick up with a QR.",
     vendorBlurb: "Open the dashboard and manage your store.",
     browseWithoutLogin: "Continue without signing in",
+    loginSubtitle: "Sign in to the SlotPass back-office with your email address.",
+    emailLabel: "Email address",
+    sendCode: "Send code",
+    codeSentTo: "We sent a 6-digit code to",
+    codeLabel: "Enter the 6-digit code",
+    verifyCode: "Verify",
+    useAnotherEmail: "Use a different email",
+    backoffice: "SlotPass back-office",
+    backofficeHint: "Manage your store, approve applications, or apply as a vendor.",
+    backofficeDashboardHint: "Manage slots, menu and orders.",
+    backofficeAdminHint: "Approve vendor applications and moderate reviews.",
+    backofficeApplyHint: "Put your store on SlotPass.",
     currentLocation: "Amsterdam Center",
     changeLocation: "Change",
     list: "List",
@@ -410,7 +438,8 @@ const dict = {
     aboutBusiness: "Short description",
     submitApplication: "Submit application",
     applicationSubmitted: "Thanks! Your application has been sent.",
-    applicationSubmittedDetail: "We review every application manually and will get back to you shortly.",
+    applicationSubmittedDetail:
+      "We review every application manually and will get back to you shortly.",
     wizardStep: "Step",
     wizardOf: "of",
     wizardNext: "Next",
@@ -445,7 +474,8 @@ const dict = {
     wizardCapacityPerSlot: "Capacity per 15 min slot",
     wizardSlotsHint: "We'll generate 15-minute slots for the next 7 days.",
     wizardReviewTitle: "Review your application",
-    wizardReviewHint: "Once approved, your shop goes live automatically with this menu and these slots.",
+    wizardReviewHint:
+      "Once approved, your shop goes live automatically with this menu and these slots.",
     wizardSubmit: "Submit for approval",
     wizardPasswordShort: "Password must be at least 8 characters.",
     wizardSlugInvalid: "Use lowercase letters, numbers, and dashes only.",
@@ -504,7 +534,8 @@ const dict = {
     stripeReview: "Under Stripe review",
     openStripeDashboard: "Open Stripe dashboard",
     stripeNotAcceptingYet: "This vendor isn't accepting payments yet.",
-    stripeConnectHint: "Vendors receive payments directly to their own Stripe account. SlotPass only keeps the service fee and commission.",
+    stripeConnectHint:
+      "Vendors receive payments directly to their own Stripe account. SlotPass only keeps the service fee and commission.",
     earnings: "Earnings",
     dateRange: "Date range",
     last7Days: "Last 7 days",
@@ -528,7 +559,8 @@ const dict = {
     offlineTicket: "You're offline — this ticket is stored on your device. Show the QR at pickup.",
     installApp: "Install app",
     dynamicPricing: "Dynamic pricing",
-    dynamicPricingHint: "Empty slots get automatic discounts shortly before pickup to boost demand.",
+    dynamicPricingHint:
+      "Empty slots get automatic discounts shortly before pickup to boost demand.",
     pricingOn: "On",
     pricingOff: "Off",
     ifWithin: "If within",
@@ -592,7 +624,8 @@ const Ctx = createContext<{ lang: Lang; setLang: (l: Lang) => void; t: (k: Key) 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>("nl");
   useEffect(() => {
-    const stored = typeof window !== "undefined" ? (localStorage.getItem("slotpass.lang") as Lang | null) : null;
+    const stored =
+      typeof window !== "undefined" ? (localStorage.getItem("slotpass.lang") as Lang | null) : null;
     if (stored === "nl" || stored === "en") setLangState(stored);
   }, []);
   const setLang = (l: Lang) => {
