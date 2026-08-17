@@ -418,11 +418,8 @@ function VendorDashboard() {
             const stripeDone = vendor.stripe_charges_enabled;
             const orderDone = false;
             const steps = [
-              {
-                done: brandingDone,
-                label: t("onboardingConfirmBranding"),
-                href: `/${vendor.slug}`,
-              },
+              // No public storefront in the back-office (customer flow is native) → no link.
+              { done: brandingDone, label: t("onboardingConfirmBranding"), href: null },
               { done: slotDone, label: t("onboardingAddSlot"), href: null },
               { done: stripeDone, label: t("onboardingConnectStripe"), href: null },
               { done: orderDone, label: t("onboardingFirstOrder"), href: null },

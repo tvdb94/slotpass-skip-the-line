@@ -33,7 +33,9 @@ function LoginPage() {
       // Email one-time code (6 digits — project mailer_otp_length=6, templates use {{ .Token }}).
       const { error: err } = await supabase.auth.signInWithOtp({
         email: addr,
-        options: { shouldCreateUser: true },
+        // Back-office = pre-provisioned staff/admin only. A stranger's email just
+        // fails (no account minted, no OTP-email abuse). 8b adds explicit vendor signup.
+        options: { shouldCreateUser: false },
       });
       if (err) throw err;
       setStep("code");
