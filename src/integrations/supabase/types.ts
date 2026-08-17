@@ -906,6 +906,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      admin_set_vendor_flags: {
+        Args: { _is_active?: boolean; _is_featured?: boolean; _vendor_id: string };
+        Returns: undefined;
+      };
       approve_vendor_application: {
         Args: {
           _application_id: string;

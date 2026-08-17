@@ -152,18 +152,28 @@ function AdminPage() {
     setReviews((data ?? []) as unknown as ReviewRow[]);
   }
 
-  async function toggleFeatured(v: VendorRow) {
+  // is_featured/is_active are admin-owned columns: the `authenticated` UPDATE grant was
+  // revoked (B88), so writes go through the SECURITY DEFINER admin_set_vendor_flags RPC
+  // (has_role(admin)-gated). Only the toggled flag is sent; the omitted one stays NULL and
+  // the RPC COALESCEs it to its current value, so a stale row can't clobber the other flag.
+  async function setFlag(v: VendorRow, patch: { _is_featured?: boolean; _is_active?: boolean }) {
     setBusyId(v.id);
-    await supabase.from("vendors").update({ is_featured: !v.is_featured }).eq("id", v.id);
+    const { error } = await supabase.rpc("admin_set_vendor_flags", { _vendor_id: v.id, ...patch });
     setBusyId(null);
+    if (error) {
+      setFlash(error.message);
+      setTimeout(() => setFlash(null), 3000);
+      return;
+    }
     reloadVendors();
   }
 
-  async function toggleActive(v: VendorRow) {
-    setBusyId(v.id);
-    await supabase.from("vendors").update({ is_active: !v.is_active }).eq("id", v.id);
-    setBusyId(null);
-    reloadVendors();
+  function toggleFeatured(v: VendorRow) {
+    return setFlag(v, { _is_featured: !v.is_featured });
+  }
+
+  function toggleActive(v: VendorRow) {
+    return setFlag(v, { _is_active: !v.is_active });
   }
 
   async function saveCity(v: VendorRow) {
