@@ -26,7 +26,12 @@ export default function VendorMap({ vendors }: { vendors: MapVendor[] }) {
     : [52.3702, 4.8952];
 
   return (
-    <MapContainer center={center} zoom={14} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false}>
+    <MapContainer
+      center={center}
+      zoom={14}
+      style={{ height: "100%", width: "100%" }}
+      scrollWheelZoom={false}
+    >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -35,7 +40,9 @@ export default function VendorMap({ vendors }: { vendors: MapVendor[] }) {
         <Marker key={v.id} position={[v.lat!, v.lng!]} icon={defaultIcon}>
           <Popup>
             <div className="min-w-[140px]">
-              <div className="font-bold" style={{ color: v.brand_primary ?? undefined }}>{v.name}</div>
+              <div className="font-bold" style={{ color: v.brand_primary ?? undefined }}>
+                {v.name}
+              </div>
               <div className="text-xs text-neutral-500">{v.cuisine}</div>
               <a href={`/${v.slug}`} className="mt-1 inline-block text-xs font-semibold underline">
                 Open →

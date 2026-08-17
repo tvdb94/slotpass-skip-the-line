@@ -55,16 +55,15 @@ const ORDER_KEY = (code: string) => `slotpass:order:${code.toUpperCase()}`;
 
 export function cacheOrder(code: string, payload: unknown) {
   try {
-    localStorage.setItem(
-      ORDER_KEY(code),
-      JSON.stringify({ cachedAt: Date.now(), payload }),
-    );
+    localStorage.setItem(ORDER_KEY(code), JSON.stringify({ cachedAt: Date.now(), payload }));
   } catch {
     // ignore quota errors
   }
 }
 
-export function readCachedOrder<T = unknown>(code: string): { cachedAt: number; payload: T } | null {
+export function readCachedOrder<T = unknown>(
+  code: string,
+): { cachedAt: number; payload: T } | null {
   try {
     const raw = localStorage.getItem(ORDER_KEY(code));
     if (!raw) return null;

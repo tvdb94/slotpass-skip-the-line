@@ -27,7 +27,11 @@ export function StarRating({
             onClick={() => !readOnly && onChange?.(n)}
             aria-label={`${n} star${n > 1 ? "s" : ""}`}
             className={`leading-none transition-transform ${readOnly ? "" : "hover:scale-110 active:scale-95"}`}
-            style={{ fontSize: size, color: filled ? "#f5a524" : "#e5e5e5", cursor: readOnly ? "default" : "pointer" }}
+            style={{
+              fontSize: size,
+              color: filled ? "#f5a524" : "#e5e5e5",
+              cursor: readOnly ? "default" : "pointer",
+            }}
           >
             ★
           </button>
