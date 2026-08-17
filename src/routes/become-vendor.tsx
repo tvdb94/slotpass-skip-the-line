@@ -186,7 +186,7 @@ function BecomeVendorWizard() {
     const { error } = await supabase.from("vendor_applications").insert({
       business_name: businessName.trim(),
       contact_name: contactName.trim(),
-      contact_email: email.trim(),
+      contact_email: email.trim().toLowerCase(),
       phone: phone.trim() || null,
       cuisine: cuisine.trim(),
       address: address.trim() || null,

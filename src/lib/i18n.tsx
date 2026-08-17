@@ -131,7 +131,6 @@ const dict = {
     continueOnboarding: "Onboarding afmaken",
     stripeConnected: "Verbonden ✓",
     stripeReview: "In review bij Stripe",
-    openStripeDashboard: "Open Stripe dashboard",
     stripeConnectHint:
       "Verkopers ontvangen betalingen direct op hun eigen Stripe account. SlotPass houdt alleen de servicekosten en commissie in.",
     earnings: "Verdiensten",
@@ -309,7 +308,6 @@ const dict = {
     continueOnboarding: "Continue onboarding",
     stripeConnected: "Connected ✓",
     stripeReview: "Under Stripe review",
-    openStripeDashboard: "Open Stripe dashboard",
     stripeConnectHint:
       "Vendors receive payments directly to their own Stripe account. SlotPass only keeps the service fee and commission.",
     earnings: "Earnings",

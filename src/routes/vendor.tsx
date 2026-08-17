@@ -190,10 +190,12 @@ function VendorDashboard() {
     if (!connect) return;
     (async () => {
       if (connect === "return") {
-        const { data } = await supabase.functions.invoke("connect-status", {
+        const { data, error } = await supabase.functions.invoke("connect-status", {
           body: { vendorId: vendor.id },
         });
-        if (data?.updated) {
+        if (error) {
+          setConnectError(error.message);
+        } else if (data?.updated) {
           setVendor((prev) =>
             prev
               ? {
@@ -208,10 +210,18 @@ function VendorDashboard() {
         url.searchParams.delete("connect");
         window.history.replaceState({}, "", url.toString());
       } else if (connect === "refresh") {
-        const { data } = await supabase.functions.invoke("connect-onboarding-link", {
+        const { data, error } = await supabase.functions.invoke("connect-onboarding-link", {
           body: { vendorId: vendor.id, origin: window.location.origin },
         });
-        if (data?.url) window.location.href = data.url as string;
+        if (!error && data?.url) {
+          window.location.href = data.url as string;
+          return;
+        }
+        // Regeneration failed — surface it and drop the param so the user can retry via
+        // the Connect button instead of being stranded on ?connect=refresh.
+        setConnectError(error?.message ?? "Stripe error");
+        url.searchParams.delete("connect");
+        window.history.replaceState({}, "", url.toString());
       }
     })();
   }, [vendor]);
