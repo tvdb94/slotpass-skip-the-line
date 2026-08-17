@@ -907,7 +907,7 @@ export type Database = {
     };
     Functions: {
       admin_set_vendor_flags: {
-        Args: { _is_active: boolean; _is_featured: boolean; _vendor_id: string };
+        Args: { _is_active?: boolean; _is_featured?: boolean; _vendor_id: string };
         Returns: undefined;
       };
       approve_vendor_application: {
