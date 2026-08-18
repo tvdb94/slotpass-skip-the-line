@@ -48,12 +48,12 @@ function BecomeVendorWizard() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
-  // Auth
+  // Auth (email OTP — mirrors login.tsx, but shouldCreateUser:true so a brand-new applicant
+  // gets an account; the verified session's user id becomes applicant_user_id on submit).
   const [userId, setUserId] = useState<string | null>(null);
-  const [authMode, setAuthMode] = useState<"signup" | "signin">("signup");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [checkEmail, setCheckEmail] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [code, setCode] = useState("");
 
   // Business
   const [businessName, setBusinessName] = useState("");
@@ -99,46 +99,44 @@ function BecomeVendorWizard() {
 
   const totalSteps = 6;
 
-  async function handleAuth() {
+  async function sendCode() {
     setError(null);
-    if (!email.includes("@")) {
+    const addr = email.trim().toLowerCase();
+    if (!addr.includes("@")) {
       setError(t("email"));
       return;
     }
-    if (password.length < 8) {
-      setError(t("wizardPasswordShort"));
+    setBusy(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: addr,
+      options: { shouldCreateUser: true },
+    });
+    setBusy(false);
+    if (error) {
+      setError(error.message);
       return;
     }
+    setOtpSent(true);
+  }
+
+  async function verifyCode() {
+    setError(null);
+    const token = code.trim();
+    if (token.length < 6) return;
     setBusy(true);
-    if (authMode === "signin") {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      setBusy(false);
-      if (error) {
-        setError(error.message);
-        return;
-      }
-      if (data.user) {
-        setUserId(data.user.id);
-        setStep(2);
-      }
-    } else {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: window.location.origin + "/become-vendor" },
-      });
-      setBusy(false);
-      if (error) {
-        setError(error.message);
-        return;
-      }
-      if (data.session && data.user) {
-        setUserId(data.user.id);
-        setStep(2);
-      } else if (data.user) {
-        // Some setups return a user w/o session when confirmation required.
-        setCheckEmail(true);
-      }
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token,
+      type: "email",
+    });
+    setBusy(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    if (data.user) {
+      setUserId(data.user.id);
+      setStep(2);
     }
   }
 
@@ -188,7 +186,7 @@ function BecomeVendorWizard() {
     const { error } = await supabase.from("vendor_applications").insert({
       business_name: businessName.trim(),
       contact_name: contactName.trim(),
-      contact_email: email.trim(),
+      contact_email: email.trim().toLowerCase(),
       phone: phone.trim() || null,
       cuisine: cuisine.trim(),
       address: address.trim() || null,
@@ -261,38 +259,46 @@ function BecomeVendorWizard() {
           {step === 1 && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">{t("wizardAccountHelp")}</p>
-              {checkEmail ? (
-                <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
-                  {t("wizardCheckEmail")}
-                </div>
-              ) : (
+              {!otpSent ? (
                 <>
                   <Field label={t("email")} value={email} onChange={setEmail} type="email" />
-                  <Field
-                    label={t("wizardPassword")}
-                    value={password}
-                    onChange={setPassword}
-                    type="password"
-                  />
                   <button
                     disabled={busy}
-                    onClick={handleAuth}
+                    onClick={sendCode}
                     className="w-full rounded-2xl bg-foreground px-4 py-3 text-sm font-black text-background disabled:opacity-50"
                   >
-                    {busy
-                      ? t("loading")
-                      : authMode === "signup"
-                        ? t("wizardCreateAccount")
-                        : t("wizardSignIn")}
+                    {busy ? t("loading") : t("sendCode")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    {t("codeSentTo")} <span className="font-semibold text-foreground">{email}</span>
+                  </p>
+                  <input
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="123456"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-center text-lg font-mono tracking-[0.4em] outline-none focus:border-foreground"
+                  />
+                  <button
+                    disabled={busy || code.length < 6}
+                    onClick={verifyCode}
+                    className="w-full rounded-2xl bg-foreground px-4 py-3 text-sm font-black text-background disabled:opacity-50"
+                  >
+                    {busy ? t("loading") : t("verifyCode")}
                   </button>
                   <button
                     onClick={() => {
-                      setAuthMode(authMode === "signup" ? "signin" : "signup");
+                      setOtpSent(false);
+                      setCode("");
                       setError(null);
                     }}
                     className="w-full text-xs text-muted-foreground underline"
                   >
-                    {authMode === "signup" ? t("wizardAlreadyHave") : t("wizardNeedAccount")}
+                    {t("useAnotherEmail")}
                   </button>
                 </>
               )}
@@ -538,8 +544,7 @@ function StepBar({ step, total, labels }: { step: number; total: number; labels:
 }
 
 function ReviewStep(props: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 8b reconciles become-vendor's typing
-  t: (k: any) => string;
+  t: ReturnType<typeof useI18n>["t"];
   lang: string;
   businessName: string;
   cuisine: string;
