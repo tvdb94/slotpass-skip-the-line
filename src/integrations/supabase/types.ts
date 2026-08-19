@@ -1042,6 +1042,7 @@ export type Database = {
         Returns: boolean;
       };
       is_vendor_staff: { Args: { _vendor_id: string }; Returns: boolean };
+      mark_order_collected: { Args: { _order_id: string }; Returns: undefined };
       promote_waitlist: { Args: never; Returns: number };
       reject_vendor_application: {
         Args: { _application_id: string; _notes: string };
