@@ -95,6 +95,7 @@ function VendorDashboard() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [scan, setScan] = useState("");
   const [flash, setFlash] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsRow[]>([]);
   const [topItems, setTopItems] = useState<TopItem[]>([]);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
@@ -327,6 +328,10 @@ function VendorDashboard() {
   }
 
   async function markCollected(order: OrderRow) {
+    // Busy-guard: block a rapid double-click (a second collect would hit the RPC's double-collect
+    // guard and flash a scary "already collected" over the ✓). Mirrors admin.tsx's busyId.
+    if (busyId) return;
+    setBusyId(order.id);
     // Hardened, staff-gated, race-safe collect (8c). The RPC enforces the paid|no_show -> collected
     // transition, guards double-collect, and locks the row against the mark-no-shows cron — the raw
     // orders.update it replaced let staff write arbitrary financial columns.
@@ -334,14 +339,18 @@ function VendorDashboard() {
     if (error) {
       setFlash(error.message);
       setTimeout(() => setFlash(null), 3000);
+      setBusyId(null);
       return;
     }
     if (vendor) reloadOrders(vendor.id);
     setFlash(`✓ ${order.order_code}`);
     setTimeout(() => setFlash(null), 1500);
+    setBusyId(null);
   }
 
   async function markNoShow(order: OrderRow) {
+    if (busyId) return;
+    setBusyId(order.id);
     // Raw update, but the 8c grant restricts authenticated UPDATE on orders to
     // (status, collected_at, no_show_at) — no financial columns writable here; RLS still scopes it
     // to the vendor's own orders.
@@ -355,12 +364,16 @@ function VendorDashboard() {
     if (error) {
       setFlash(error.message);
       setTimeout(() => setFlash(null), 3000);
+      setBusyId(null);
       return;
     }
     if (vendor) reloadOrders(vendor.id);
+    setBusyId(null);
   }
 
   async function undoNoShow(order: OrderRow) {
+    if (busyId) return;
+    setBusyId(order.id);
     // Same safe-column grant as markNoShow (8c).
     const { error } = await supabase
       .from("orders")
@@ -372,14 +385,16 @@ function VendorDashboard() {
     if (error) {
       setFlash(error.message);
       setTimeout(() => setFlash(null), 3000);
+      setBusyId(null);
       return;
     }
     if (vendor) reloadOrders(vendor.id);
+    setBusyId(null);
   }
 
   async function lookupAndCollect() {
     const q = scan.trim();
-    if (!q || !vendor) return;
+    if (!q || !vendor || busyId) return;
     const cols =
       "id,order_code,status,total_cents,customer_name,qr_token,slot_id,paid_at,collected_at,no_show_at,vendor_id";
     const { data: byToken } = await supabase
@@ -818,7 +833,8 @@ function VendorDashboard() {
             />
             <button
               onClick={lookupAndCollect}
-              className="rounded-xl px-3 py-2 text-sm font-bold text-white"
+              disabled={!!busyId}
+              className="rounded-xl px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
               style={{ background: primary }}
             >
               {t("lookup")}
@@ -865,14 +881,16 @@ function VendorDashboard() {
                     <div className="flex flex-col items-end gap-1">
                       <button
                         onClick={() => markCollected(o)}
-                        className="rounded-full px-3 py-1.5 text-xs font-bold text-white"
+                        disabled={busyId === o.id}
+                        className="rounded-full px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
                         style={{ background: primary }}
                       >
                         {t("markCollected")}
                       </button>
                       <button
                         onClick={() => markNoShow(o)}
-                        className="rounded-full px-2 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
+                        disabled={busyId === o.id}
+                        className="rounded-full px-2 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-50"
                       >
                         {t("markNoShow")}
                       </button>
@@ -899,7 +917,8 @@ function VendorDashboard() {
                       <span>{formatEUR(o.total_cents)}</span>
                       <button
                         onClick={() => undoNoShow(o)}
-                        className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-300"
+                        disabled={busyId === o.id}
+                        className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-300 disabled:opacity-50"
                       >
                         {t("undo")}
                       </button>
