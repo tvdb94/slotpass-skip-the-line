@@ -327,38 +327,53 @@ function VendorDashboard() {
   }
 
   async function markCollected(order: OrderRow) {
-    await supabase
-      .from("orders")
-      .update({
-        status: "collected",
-        collected_at: new Date().toISOString(),
-        no_show_at: null,
-      })
-      .eq("id", order.id);
+    // Hardened, staff-gated, race-safe collect (8c). The RPC enforces the paid|no_show -> collected
+    // transition, guards double-collect, and locks the row against the mark-no-shows cron — the raw
+    // orders.update it replaced let staff write arbitrary financial columns.
+    const { error } = await supabase.rpc("mark_order_collected", { _order_id: order.id });
+    if (error) {
+      setFlash(error.message);
+      setTimeout(() => setFlash(null), 3000);
+      return;
+    }
     if (vendor) reloadOrders(vendor.id);
     setFlash(`✓ ${order.order_code}`);
     setTimeout(() => setFlash(null), 1500);
   }
 
   async function markNoShow(order: OrderRow) {
-    await supabase
+    // Raw update, but the 8c grant restricts authenticated UPDATE on orders to
+    // (status, collected_at, no_show_at) — no financial columns writable here; RLS still scopes it
+    // to the vendor's own orders.
+    const { error } = await supabase
       .from("orders")
       .update({
         status: "no_show",
         no_show_at: new Date().toISOString(),
       })
       .eq("id", order.id);
+    if (error) {
+      setFlash(error.message);
+      setTimeout(() => setFlash(null), 3000);
+      return;
+    }
     if (vendor) reloadOrders(vendor.id);
   }
 
   async function undoNoShow(order: OrderRow) {
-    await supabase
+    // Same safe-column grant as markNoShow (8c).
+    const { error } = await supabase
       .from("orders")
       .update({
         status: "paid",
         no_show_at: null,
       })
       .eq("id", order.id);
+    if (error) {
+      setFlash(error.message);
+      setTimeout(() => setFlash(null), 3000);
+      return;
+    }
     if (vendor) reloadOrders(vendor.id);
   }
 
