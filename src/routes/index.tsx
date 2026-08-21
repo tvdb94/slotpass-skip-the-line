@@ -5,8 +5,8 @@ import { useI18n } from "@/lib/i18n";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "SlotPass — Back-office" },
-      { name: "description", content: "SlotPass vendor & admin back-office." },
+      { title: "Grabbit HQ — Back-office" },
+      { name: "description", content: "Grabbit HQ vendor & admin back-office." },
     ],
   }),
   component: BackofficeHome,

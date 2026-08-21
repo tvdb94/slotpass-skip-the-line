@@ -7,8 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Inloggen — SlotPass" },
-      { name: "description", content: "Log in op de SlotPass back-office." },
+      { title: "Inloggen — Grabbit HQ" },
+      { name: "description", content: "Log in op Grabbit HQ." },
     ],
   }),
   component: LoginPage,
