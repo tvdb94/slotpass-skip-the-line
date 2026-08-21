@@ -80,24 +80,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "SlotPass — Bestel vooruit, sla de rij over" },
+      { title: "Grabbit HQ — Back-office" },
       {
         name: "description",
         content:
-          "SlotPass is een pickup-marktplaats. Pre-order, kies je 15-minuten slot en pick-up met QR.",
+          "Grabbit HQ: de back-office voor verkopers en beheerders — beheer slots, menu en bestellingen.",
       },
-      { name: "author", content: "SlotPass" },
-      { property: "og:title", content: "SlotPass — Bestel vooruit, sla de rij over" },
+      { name: "author", content: "Grabbit" },
+      { property: "og:title", content: "Grabbit HQ — Back-office" },
       {
         property: "og:description",
-        content: "Pickup-marktplaats: pre-order, kies je slot en pick-up met QR.",
+        content: "Back-office voor Grabbit-verkopers en beheerders.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "theme-color", content: "#FF5A3C" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
-      { name: "apple-mobile-web-app-title", content: "SlotPass" },
+      { name: "apple-mobile-web-app-title", content: "Grabbit HQ" },
     ],
     links: [
       {

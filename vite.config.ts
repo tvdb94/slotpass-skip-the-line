@@ -30,7 +30,7 @@ export default defineConfig({
               urlPattern: ({ request }) => request.mode === "navigate",
               handler: "NetworkFirst",
               options: {
-                cacheName: "slotpass-html",
+                cacheName: "grabbit-html",
                 networkTimeoutSeconds: 4,
                 expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 },
               },
@@ -40,7 +40,7 @@ export default defineConfig({
                 sameOrigin && /\.(?:js|css|woff2?|png|jpg|jpeg|svg|webp|ico)$/i.test(url.pathname),
               handler: "CacheFirst",
               options: {
-                cacheName: "slotpass-assets",
+                cacheName: "grabbit-assets",
                 expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
               },
             },

@@ -7,13 +7,13 @@ import { useI18n } from "@/lib/i18n";
 export const Route = createFileRoute("/become-vendor")({
   head: () => ({
     meta: [
-      { title: "Become a vendor — SlotPass" },
+      { title: "Become a vendor — Grabbit" },
       {
         name: "description",
-        content: "Set up your SlotPass store in minutes: branding, menu, and pickup slots.",
+        content: "Set up your Grabbit store in minutes: branding, menu, and pickup slots.",
       },
-      { property: "og:title", content: "Become a vendor — SlotPass" },
-      { property: "og:description", content: "Set up your SlotPass store in minutes." },
+      { property: "og:title", content: "Become a vendor — Grabbit" },
+      { property: "og:description", content: "Set up your Grabbit store in minutes." },
     ],
   }),
   component: BecomeVendorWizard,
@@ -572,7 +572,7 @@ function ReviewStep(props: {
           </div>
         </div>
         <dl className="mt-3 space-y-1 text-xs">
-          <Row k="URL" v={`slotpass.app/${slug}`} />
+          <Row k="URL" v={`grabbithq.com/${slug}`} />
           <Row k={t("wizardMenu")} v={`${menuCount} ${t("draftMenu")}`} />
           <Row k={t("wizardOpenDays")} v={openDays} />
           <Row k={t("wizardOpenFrom")} v={`${slots.start} – ${slots.end}`} />

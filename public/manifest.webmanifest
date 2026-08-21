@@ -1,7 +1,7 @@
 {
-  "name": "SlotPass",
-  "short_name": "SlotPass",
-  "description": "Pre-order food, skip the queue. Pick a 15-minute slot and show your QR at pickup.",
+  "name": "Grabbit HQ",
+  "short_name": "Grabbit HQ",
+  "description": "Grabbit HQ — back-office for vendors and admins: manage slots, menu and orders.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
